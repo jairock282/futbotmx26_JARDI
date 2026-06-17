@@ -19,6 +19,7 @@ examples/
 
 configs/
   homography_points.example.json   # plantilla de puntos de calibracion
+  calibrations/                    # calibraciones listas por video
 
 docs/
   homografia_video.md              # explicacion teorica y tecnica
@@ -66,6 +67,18 @@ En la ventana:
 - presionar `Enter` para guardar.
 
 Se recomienda usar 6 a 12 puntos bien distribuidos sobre las lineas de la cancha.
+
+### Calibraciones incluidas
+
+Esta rama incluye calibraciones ya capturadas para tres videos:
+
+```text
+configs/calibrations/homography_points_9913.json
+configs/calibrations/homography_points_9933.json
+configs/calibrations/homography_points_9938.json
+```
+
+En el layout local usado durante el desarrollo, estas calibraciones apuntan a `../videos/...` y `../cancha.png` desde el repo clonado dentro del proyecto padre.
 
 ### 2. Estimar homografias por frame
 

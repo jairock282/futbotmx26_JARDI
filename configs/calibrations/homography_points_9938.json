@@ -1,0 +1,36 @@
+{
+  "frame_image": "../../../videos/IMG_9938_MOV_frames/frame_0001.jpg",
+  "field_image": "../../../cancha.png",
+  "points": [
+    {
+      "name": "punto_1",
+      "frame": [825.6, 233.9],
+      "field": [52.0, 53.5]
+    },
+    {
+      "name": "punto_2",
+      "frame": [981.5, 1589.3],
+      "field": [867.6, 50.5]
+    },
+    {
+      "name": "punto_3",
+      "frame": [575.6, 266.0],
+      "field": [52.7, 197.2]
+    },
+    {
+      "name": "punto_4",
+      "frame": [57.3, 311.9],
+      "field": [52.0, 490.8]
+    },
+    {
+      "name": "punto_5",
+      "frame": [745.3, 1626.0],
+      "field": [863.1, 196.5]
+    },
+    {
+      "name": "punto_6",
+      "frame": [259.1, 1706.2],
+      "field": [866.9, 490.8]
+    }
+  ]
+}
