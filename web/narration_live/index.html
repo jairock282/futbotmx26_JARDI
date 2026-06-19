@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>FutBotMX Narracion</title>
+    <link rel="stylesheet" href="/static/app.css">
+  </head>
+  <body>
+    <main class="shell">
+      <section class="score-band">
+        <div>
+          <p class="eyebrow">FutBotMX</p>
+          <h1>Narracion en vivo</h1>
+        </div>
+        <div class="status-panel">
+          <div class="status-dot" id="connectionDot"></div>
+          <span id="connectionText">Conectando</span>
+        </div>
+      </section>
+
+      <section class="control-strip" aria-label="Controles">
+        <button class="primary" id="audioButton" type="button">
+          <span class="icon">▶</span>
+          <span>Audio</span>
+        </button>
+        <button id="demoButton" type="button">
+          <span class="icon">●</span>
+          <span>Demo</span>
+        </button>
+        <button id="resetButton" type="button">
+          <span class="icon">↺</span>
+          <span>Limpiar</span>
+        </button>
+        <div class="meter" aria-label="Cola de audio">
+          <span>Cola</span>
+          <strong id="queueCount">0</strong>
+        </div>
+      </section>
+
+      <section class="audio-console" aria-label="Reproductor">
+        <div>
+          <strong id="playerStatus">Audio listo</strong>
+          <span id="playerHint">Activa Audio antes de iniciar la demo.</span>
+        </div>
+        <audio id="audioPlayer" controls preload="none"></audio>
+      </section>
+
+      <section class="field-view" aria-label="Cancha">
+        <div class="field-lines">
+          <div class="center-circle"></div>
+          <div class="midline"></div>
+          <div class="box box-left"></div>
+          <div class="box box-right"></div>
+        </div>
+        <div class="live-now">
+          <span id="liveType">Esperando</span>
+          <strong id="liveText">Sin acciones</strong>
+        </div>
+      </section>
+
+      <section class="timeline" aria-label="Acciones">
+        <div class="timeline-head">
+          <h2>Acciones</h2>
+          <span id="actionCount">0</span>
+        </div>
+        <div class="event-list" id="eventList"></div>
+      </section>
+    </main>
+    <script src="/static/app.js"></script>
+  </body>
+</html>

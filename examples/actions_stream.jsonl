@@ -1,0 +1,4 @@
+{"timestamp":"00:07","type":"pase","team":"blanco","robot_id":"B2","target_robot_id":"B4","outcome":"completo","confidence":0.91}
+{"timestamp":"00:13","type":"tiro","team":"blanco","robot_id":"B4","outcome":"a_porteria","confidence":0.84}
+{"timestamp":"00:15","type":"gol","team":"blanco","robot_id":"B4","score":{"blanco":1,"negro":0},"confidence":0.96}
+{"timestamp":"00:29","type":"fuera_de_lugar","team":"negro","robot_id":"N3","confidence":0.72}

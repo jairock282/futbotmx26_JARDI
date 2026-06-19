@@ -23,6 +23,10 @@ configs/
 
 docs/
   homografia_video.md              # explicacion teorica y tecnica
+  narracion.md                     # narracion GPT + audio ElevenLabs
+
+futbot_narration/
+  narrator.py                      # stream de acciones -> texto + MP3
 ```
 
 ## Instalacion
@@ -32,6 +36,9 @@ pip install -r requirements.txt
 ```
 
 El codigo fue probado con Python 3.11, NumPy y OpenCV.
+
+Para la narracion se usan APIs HTTP de OpenAI y ElevenLabs sin dependencias
+extra. Configura tus llaves en `.env` a partir de `.env.example`.
 
 ## Flujo de uso
 
@@ -140,6 +147,10 @@ La explicacion completa del metodo esta en:
 
 [docs/homografia_video.md](docs/homografia_video.md)
 
+La integracion de narracion automatica esta en:
+
+[docs/narracion.md](docs/narracion.md)
+
 Incluye:
 
 - teoria de la homografia base `H_ref`,
@@ -148,3 +159,98 @@ Incluye:
 - uso de ECC,
 - procesamiento de lineas blancas,
 - proyeccion de puntos a vista cenital.
+
+## Narracion automatica
+
+Esta rama agrega una tuberia que recibe acciones del partido en JSONL, genera
+narracion estilo comentarista de futbol mexicano con OpenAI y convierte el texto
+a audio con ElevenLabs usando la voz `QpDQJR3frbDwOhTIo8nW`.
+
+Configura `.env` con tus llaves:
+
+```bash
+OPENAI_API_KEY=
+ELEVENLABS_API_KEY=
+OPENAI_MODEL=gpt-5.5
+OPENAI_REASONING_EFFORT=low
+ELEVENLABS_VOICE_ID=QpDQJR3frbDwOhTIo8nW
+ELEVENLABS_VOICE_SPEED=1.18
+```
+
+Prueba sin consumir APIs:
+
+```bash
+python scripts/run_narration_stream.py \
+  --actions examples/actions_stream.jsonl \
+  --mock
+```
+
+Uso real:
+
+```bash
+python scripts/run_narration_stream.py \
+  --actions examples/actions_stream.jsonl
+```
+
+Web app en vivo:
+
+```bash
+python scripts/live_narration_server.py
+```
+
+Web app usando streaming de ElevenLabs:
+
+```bash
+python scripts/live_narration_server.py --stream-audio
+```
+
+Abre `http://127.0.0.1:8060`, activa `Audio` y envia acciones a
+`POST /api/actions`.
+
+Ejemplo:
+
+```bash
+curl -X POST http://127.0.0.1:8060/api/actions \
+  -H "Content-Type: application/json" \
+  -d '{"timestamp":"00:42","type":"pase","team":"blanco","robot_id":"B2","target_robot_id":"B4","confidence":0.91}'
+```
+
+Para cerrar el servidor usa `Ctrl+C` en la terminal donde esta corriendo. Si el
+puerto quedo ocupado, usa:
+
+```bash
+python scripts/stop_live_narration_server.py
+```
+
+Para revisar antes de detener:
+
+```bash
+python scripts/stop_live_narration_server.py --dry-run
+```
+
+La documentacion completa para integrarlo con los detectores esta en
+[docs/narracion.md](docs/narracion.md).
+
+Para revisar el estado de la web app:
+
+```bash
+curl http://127.0.0.1:8060/api/status
+curl http://127.0.0.1:8060/api/history
+```
+
+El boton `Limpiar` llama a `POST /api/reset`: vacia la cola, detiene audio local
+e invalida respuestas viejas de GPT/ElevenLabs para que no reaparezcan acciones
+anteriores ni se queden filas en `NARRANDO`.
+
+Prueba directa de la voz en streaming:
+
+```bash
+python scripts/test_elevenlabs_stream.py \
+  --text "Gol del equipo blanco, B4 la manda a guardar y se prende la cancha."
+```
+
+Benchmark de latencia con y sin streaming:
+
+```bash
+python scripts/benchmark_elevenlabs_latency.py --trials 3
+```

@@ -206,6 +206,10 @@ tempCodeRunnerFile.py
 # Ruff stuff:
 .ruff_cache/
 
+# FutBotMX generated artifacts
+outputs/
+*.mp3
+
 # PyPI configuration file
 .pypirc
 
