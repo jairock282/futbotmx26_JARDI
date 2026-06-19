@@ -55,7 +55,6 @@ def load_tracking_classes(config_path: str | Path) -> list[TrackingClass]:
 
 @dataclass(frozen=True)
 class TrackingConfig:
-    # target_fps: float = 20.0 #TODO: remove
     offload_video_to_cpu: bool = True
     mask_alpha: float = 0.5
     font_scale: float = 0.7
