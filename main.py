@@ -16,6 +16,7 @@ import sys
 
 import cv2
 import numpy as np
+
 from futbot_activity_recognition import ControlDetector, GoalDetector, PassingDetector, load_goal_zones
 from futbot_homography import (
     ConsecutiveHomographyEstimator,
@@ -462,6 +463,7 @@ class AppState:
                     self.demo_running = False
             if self.is_current_generation(generation):
                 self.broadcast("demo_finished", {"generation": generation})
+                threading.Thread(target=_wait_and_broadcast_complete, args=(self,), daemon=True).start()
 
 
 # ── Pipeline runner ───────────────────────────────────────────────────────────
@@ -654,6 +656,14 @@ def run_pipeline(state: AppState) -> None:
     state.broadcast("pipeline_status", {"status": "finished", "score": state.match_score})
     with state.pipeline_lock:
         state.pipeline_running = False
+    threading.Thread(target=_wait_and_broadcast_complete, args=(state,), daemon=True).start()
+
+
+def _wait_and_broadcast_complete(state: AppState) -> None:
+    """Wait until all queued narrations finish, then notify the frontend."""
+    state.actions.join()
+    time.sleep(5)
+    state.broadcast("narration_complete", {"score": state.match_score})
 
 
 # ── HTTP Server ───────────────────────────────────────────────────────────────

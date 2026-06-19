@@ -17,6 +17,22 @@ const videoPlaceholder = document.getElementById("videoPlaceholder");
 const pipelineStatus = document.getElementById("pipelineStatus");
 const scoreA = document.getElementById("scoreA");
 const scoreB = document.getElementById("scoreB");
+const summaryOverlay = document.getElementById("summaryOverlay");
+const summaryClose = document.getElementById("summaryClose");
+const summaryScoreA = document.getElementById("summaryScoreA");
+const summaryScoreB = document.getElementById("summaryScoreB");
+const summaryResult = document.getElementById("summaryResult");
+const statGoalsA = document.getElementById("statGoalsA");
+const statPassesA = document.getElementById("statPassesA");
+const statShotsA = document.getElementById("statShotsA");
+const statControlsA = document.getElementById("statControlsA");
+const statOffsidesA = document.getElementById("statOffsidesA");
+const statGoalsB = document.getElementById("statGoalsB");
+const statPassesB = document.getElementById("statPassesB");
+const statShotsB = document.getElementById("statShotsB");
+const statControlsB = document.getElementById("statControlsB");
+const statOffsidesB = document.getElementById("statOffsidesB");
+const summaryActions = document.getElementById("summaryActions");
 
 const audioQueue = [];
 const rows = new Map();
@@ -93,6 +109,11 @@ source.addEventListener("pipeline_status", (event) => {
       scoreB.textContent = payload.score.robot_b || 0;
     }
   }
+});
+
+source.addEventListener("narration_complete", (event) => {
+  const payload = JSON.parse(event.data);
+  showSummary(payload.score);
 });
 
 source.addEventListener("pipeline_progress", (event) => {
@@ -219,7 +240,7 @@ function addActionRow(payload) {
 
   row.append(time, main, state);
   eventList.prepend(row);
-  rows.set(payload.id, { row, title, detail, state });
+  rows.set(payload.id, { row, title, detail, state, action });
   totalActions = rows.size;
   actionCount.textContent = String(totalActions);
 
@@ -410,3 +431,67 @@ function actionDetail(action) {
   }
   return parts.join(" · ") || "Procesando accion";
 }
+
+function showSummary(score) {
+  const a = score ? (score.robot_a || 0) : 0;
+  const b = score ? (score.robot_b || 0) : 0;
+  summaryScoreA.textContent = a;
+  summaryScoreB.textContent = b;
+
+  if (a > b) summaryResult.textContent = "Robot A gana!";
+  else if (b > a) summaryResult.textContent = "Robot B gana!";
+  else summaryResult.textContent = "Empate!";
+
+  const stats = { a: { gol: 0, pase: 0, tiro: 0, controla: 0, fuera_de_lugar: 0 },
+                  b: { gol: 0, pase: 0, tiro: 0, controla: 0, fuera_de_lugar: 0 } };
+
+  rows.forEach((entry) => {
+    if (!entry.action) return;
+    const team = String(entry.action.team || entry.action.equipo || "").toLowerCase();
+    const kind = String(entry.action.type || entry.action.action || entry.action.accion || "").toLowerCase();
+    const side = team.includes("robot_a") || team.includes("blanco") || team === "robot_a" ? "a" : "b";
+    if (kind === "gol" || kind === "goal") stats[side].gol++;
+    else if (kind === "pase" || kind === "pass") stats[side].pase++;
+    else if (kind === "tiro" || kind === "shot") stats[side].tiro++;
+    else if (kind === "controla" || kind === "control") stats[side].controla++;
+    else if (kind === "fuera_de_lugar" || kind === "offside") stats[side].fuera_de_lugar++;
+  });
+
+  statGoalsA.textContent = stats.a.gol;
+  statPassesA.textContent = stats.a.pase;
+  statShotsA.textContent = stats.a.tiro;
+  statControlsA.textContent = stats.a.controla;
+  statOffsidesA.textContent = stats.a.fuera_de_lugar;
+  statGoalsB.textContent = stats.b.gol;
+  statPassesB.textContent = stats.b.pase;
+  statShotsB.textContent = stats.b.tiro;
+  statControlsB.textContent = stats.b.controla;
+  statOffsidesB.textContent = stats.b.fuera_de_lugar;
+
+  summaryActions.replaceChildren();
+  rows.forEach((entry) => {
+    const item = document.createElement("div");
+    item.className = "popup-action-item";
+    const label = document.createElement("strong");
+    label.textContent = entry.title.textContent;
+    const status = document.createElement("span");
+    status.className = "popup-action-status";
+    const stateText = entry.state.textContent;
+    status.textContent = stateText;
+    if (stateText.toLowerCase() === "error") status.classList.add("error");
+    item.append(label, status);
+    summaryActions.appendChild(item);
+  });
+
+  summaryOverlay.classList.add("visible");
+}
+
+function hideSummary() {
+  summaryOverlay.classList.remove("visible");
+}
+
+summaryClose.addEventListener("click", hideSummary);
+summaryOverlay.addEventListener("click", (e) => {
+  if (e.target === summaryOverlay) hideSummary();
+});
+

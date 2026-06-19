@@ -345,7 +345,6 @@ class ControlDetector:
                 nearest_class = label.split("_")[0] + "_" + label.split("_")[1] if "_" in label else label
 
         # Track consecutive frames with the same robot
-        print(f"nearest_dist: {nearest_dist}, threshold: {self.proximity_threshold}")
         if nearest_label is not None and nearest_dist <= self.proximity_threshold:
             if nearest_label == self._current_label:
                 self._hold_count += 1

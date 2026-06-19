@@ -92,6 +92,49 @@
         <div class="event-list" id="eventList"></div>
       </section>
     </main>
+
+    <div class="popup-overlay" id="summaryOverlay">
+      <div class="popup-card">
+        <button class="popup-close" id="summaryClose" type="button">&times;</button>
+        <h2 class="popup-title">Resumen del Partido</h2>
+        <div class="popup-score">
+          <div class="popup-team team-a">
+            <span class="popup-team-label">Robot A</span>
+            <span class="popup-team-goals" id="summaryScoreA">0</span>
+          </div>
+          <span class="popup-vs">VS</span>
+          <div class="popup-team team-b">
+            <span class="popup-team-goals" id="summaryScoreB">0</span>
+            <span class="popup-team-label">Robot B</span>
+          </div>
+        </div>
+        <div class="popup-result" id="summaryResult"></div>
+        <div class="popup-stats">
+          <div class="popup-stats-column team-a">
+            <h4>Robot A</h4>
+            <div class="popup-stat-row"><span>Goles</span><strong id="statGoalsA">0</strong></div>
+            <div class="popup-stat-row"><span>Pases</span><strong id="statPassesA">0</strong></div>
+            <div class="popup-stat-row"><span>Tiros</span><strong id="statShotsA">0</strong></div>
+            <div class="popup-stat-row"><span>Controles</span><strong id="statControlsA">0</strong></div>
+            <div class="popup-stat-row"><span>Fuera de lugar</span><strong id="statOffsidesA">0</strong></div>
+          </div>
+          <div class="popup-stats-divider"></div>
+          <div class="popup-stats-column team-b">
+            <h4>Robot B</h4>
+            <div class="popup-stat-row"><span>Goles</span><strong id="statGoalsB">0</strong></div>
+            <div class="popup-stat-row"><span>Pases</span><strong id="statPassesB">0</strong></div>
+            <div class="popup-stat-row"><span>Tiros</span><strong id="statShotsB">0</strong></div>
+            <div class="popup-stat-row"><span>Posesión del balón</span><strong id="statControlsB">0</strong></div>
+            <div class="popup-stat-row"><span>Fuera de lugar</span><strong id="statOffsidesB">0</strong></div>
+          </div>
+        </div>
+        <div class="popup-actions-section">
+          <h3>Acciones clave</h3>
+          <div class="popup-actions-list" id="summaryActions"></div>
+        </div>
+      </div>
+    </div>
+
     <script src="/static/app.js"></script>
   </body>
 </html>
