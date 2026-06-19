@@ -439,8 +439,8 @@ function showSummary(score) {
   summaryScoreB.textContent = b;
 
   if (a > b) summaryResult.textContent = "Robot A gana!";
-  else if (b > a) summaryResult.textContent = "Robot B gana!";
-  else summaryResult.textContent = "Empate!";
+  else if (b > a) summaryResult.textContent = "¡Robot B gana!";
+  else summaryResult.textContent = "¡Empate!";
 
   const stats = { a: { gol: 0, pase: 0, tiro: 0, controla: 0, fuera_de_lugar: 0 },
                   b: { gol: 0, pase: 0, tiro: 0, controla: 0, fuera_de_lugar: 0 } };

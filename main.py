@@ -467,6 +467,13 @@ class AppState:
 
 
 # ── Pipeline runner ───────────────────────────────────────────────────────────
+def _frame_to_timestamp(frame_idx: int, fps: int) -> str:
+    total_seconds = frame_idx // fps
+    minutes = total_seconds // 60
+    seconds = total_seconds % 60
+    return f"{minutes:02d}:{seconds:02d}"
+
+
 def run_pipeline(state: AppState) -> None:
     """Run the full SAM + homography + activity recognition pipeline."""
     state.broadcast("pipeline_status", {"status": "running", "step": "generating_sam_tracking"})
@@ -517,7 +524,7 @@ def run_pipeline(state: AppState) -> None:
     control_detector = ControlDetector(
         proximity_threshold=50,
         hold_frames=5,
-        cooldown_frames=OUTPUT_FPS * 5,
+        cooldown_frames=OUTPUT_FPS * 1,
     )
 
     state.broadcast("pipeline_status", {"status": "running", "step": "rendering"})
@@ -592,7 +599,7 @@ def run_pipeline(state: AppState) -> None:
             action_data = {
                 "type": "gol",
                 "team": scoring_class,
-                "timestamp": f"frame_{frame_idx}",
+                "timestamp": _frame_to_timestamp(frame_idx, OUTPUT_FPS),
                 "score": dict(state.match_score),
                 "confidence": 0.9,
             }
@@ -606,7 +613,7 @@ def run_pipeline(state: AppState) -> None:
                 "team": pass_event.details["team"],
                 "robot_id": pass_event.details["from_robot"],
                 "target_robot_id": pass_event.details["to_robot"],
-                "timestamp": f"frame_{frame_idx}",
+                "timestamp": _frame_to_timestamp(frame_idx, OUTPUT_FPS),
                 "confidence": 0.7,
             }
             state.enqueue_action(action_data)
@@ -618,7 +625,7 @@ def run_pipeline(state: AppState) -> None:
                 "type": "controla",
                 "team": control_event.details["team"],
                 "robot_id": control_event.details["robot"],
-                "timestamp": f"frame_{frame_idx}",
+                "timestamp": _frame_to_timestamp(frame_idx, OUTPUT_FPS),
                 "confidence": 0.6,
             }
             state.enqueue_action(action_data)
