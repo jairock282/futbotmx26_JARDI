@@ -3,15 +3,14 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>FutBotMX Narracion</title>
+    <title>FutBotMX-JARDI</title>
     <link rel="stylesheet" href="/static/app.css">
   </head>
   <body>
     <main class="shell">
       <section class="score-band">
         <div>
-          <p class="eyebrow">FutBotMX - JARDI</p>
-          <h1>Narracion en vivo</h1>
+          <h1>FutBotMX - JARDI</h1>
         </div>
         <div class="status-panel">
           <div class="status-dot" id="connectionDot"></div>
@@ -75,16 +74,13 @@
         <audio id="audioPlayer" controls preload="none"></audio>
       </section>
 
-      <section class="field-view" aria-label="Cancha">
-        <div class="field-lines">
-          <div class="center-circle"></div>
-          <div class="midline"></div>
-          <div class="box box-left"></div>
-          <div class="box box-right"></div>
+      <section class="narrator-booth" aria-label="Narrador">
+        <div class="dialogue-canvas">
+          <span class="dialogue-tag" id="liveType">Esperando</span>
+          <strong class="dialogue-text" id="liveText">Sin acciones</strong>
         </div>
-        <div class="live-now">
-          <span id="liveType">Esperando</span>
-          <strong id="liveText">Sin acciones</strong>
+        <div class="narrator-avatar">
+          <img src="/assets/comentarista.png" alt="Robot comentarista">
         </div>
       </section>
 

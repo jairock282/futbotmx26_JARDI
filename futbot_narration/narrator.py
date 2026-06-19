@@ -272,7 +272,7 @@ class MockCommentaryGenerator:
         kind = _normalize_action_type(action.action_type)
 
         if kind in {"gol", "goal"}:
-            return f"{maybe}Gol{team}! La mando a guardar{robot} y se prende la cancha."
+            return f"{maybe}Goooool{team}! La mando a guardar{robot} y se prende la cancha."
         if kind in {"pase", "pass"}:
             return f"{maybe}Buen pase{team}{robot}{target}, moviendo la pelota con mucha calma."
         if kind in {"fuera_de_lugar", "offside"}:

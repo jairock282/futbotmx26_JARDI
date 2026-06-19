@@ -124,12 +124,10 @@ audioButton.addEventListener("click", async () => {
   audioButton.classList.add("primary");
   setAudioButton("Audio activo", "✓");
   playerStatus.textContent = "Audio activo";
-  playerHint.textContent = lastAudioUrl ? "Reintentando ultimo audio." : "Esperando narracion.";
-  if (!isPlaying && audioQueue.length === 0 && lastAudioUrl) {
-    audioQueue.push(lastAudioUrl);
+  playerHint.textContent = "Reproduciendo bienvenida.";
+  if (!isPlaying && audioQueue.length === 0) {
+    audioQueue.push("/assets/bienvenida.mpeg");
     queueCount.textContent = String(audioQueue.length);
-  } else if (!isPlaying && audioQueue.length === 0 && lastSpokenText) {
-    speakWithBrowser(lastSpokenText);
   }
   playNext();
 });

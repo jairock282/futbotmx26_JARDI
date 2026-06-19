@@ -28,6 +28,7 @@ from futbot_narration.narrator import (
 
 
 WEB_ROOT = REPO_ROOT / "web" / "narration_live"
+ASSETS_ROOT = REPO_ROOT / "assets"
 
 
 class LiveNarrationState:
@@ -269,6 +270,9 @@ def make_handler(state: LiveNarrationState) -> type[BaseHTTPRequestHandler]:
             elif parsed.path.startswith("/static/"):
                 relative = parsed.path.removeprefix("/static/")
                 self._serve_file(WEB_ROOT / relative)
+            elif parsed.path.startswith("/assets/"):
+                relative = parsed.path.removeprefix("/assets/")
+                self._serve_file(ASSETS_ROOT / relative)
             elif parsed.path.startswith("/audio/"):
                 name = Path(unquote(parsed.path.removeprefix("/audio/"))).name
                 self._serve_file(state.output_dir / name)
@@ -363,7 +367,7 @@ def make_handler(state: LiveNarrationState) -> type[BaseHTTPRequestHandler]:
 
         def _serve_file(self, path: Path, head_only: bool = False) -> None:
             resolved = path.resolve()
-            allowed_roots = [WEB_ROOT.resolve(), state.output_dir.resolve()]
+            allowed_roots = [WEB_ROOT.resolve(), state.output_dir.resolve(), ASSETS_ROOT.resolve()]
             if not any(resolved == root or root in resolved.parents for root in allowed_roots):
                 self.send_error(HTTPStatus.FORBIDDEN)
                 return

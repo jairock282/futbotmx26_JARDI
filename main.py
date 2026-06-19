@@ -70,6 +70,7 @@ output_dir = Path(f"/mnt/HDD/model_outputs/futbot/pipeline_output/{SAMPLE_ID}")
 output_dir.mkdir(parents=True, exist_ok=True)
 
 WEB_ROOT = Path("web/narration_live")
+ASSETS_ROOT = Path("assets")
 
 
 # ── Visualization helpers ─────────────────────────────────────────────────────
@@ -466,7 +467,7 @@ class AppState:
 # ── Pipeline runner ───────────────────────────────────────────────────────────
 def run_pipeline(state: AppState) -> None:
     """Run the full SAM + homography + activity recognition pipeline."""
-    state.broadcast("pipeline_status", {"status": "running", "step": "sam_tracking"})
+    state.broadcast("pipeline_status", {"status": "running", "step": "generating_sam_tracking"})
 
     # ── 1. SAM tracking ────────────────────────────────────────────────────────
     print("=== Step 1: SAM Tracking ===")
@@ -512,9 +513,9 @@ def run_pipeline(state: AppState) -> None:
         cooldown_frames=OUTPUT_FPS * 2,
     )
     control_detector = ControlDetector(
-        proximity_threshold=800,
+        proximity_threshold=50,
         hold_frames=5,
-        cooldown_frames=OUTPUT_FPS * 3,
+        cooldown_frames=OUTPUT_FPS * 5,
     )
 
     state.broadcast("pipeline_status", {"status": "running", "step": "rendering"})
@@ -686,6 +687,9 @@ def make_handler(state: AppState) -> type[BaseHTTPRequestHandler]:
             elif parsed.path.startswith("/static/"):
                 relative = parsed.path.removeprefix("/static/")
                 self._serve_file(WEB_ROOT / relative)
+            elif parsed.path.startswith("/assets/"):
+                relative = parsed.path.removeprefix("/assets/")
+                self._serve_file(ASSETS_ROOT / relative)
             elif parsed.path.startswith("/audio/"):
                 name = Path(unquote(parsed.path.removeprefix("/audio/"))).name
                 self._serve_file(state.output_dir / name)
@@ -808,7 +812,7 @@ def make_handler(state: AppState) -> type[BaseHTTPRequestHandler]:
 
         def _serve_file(self, path: Path, head_only: bool = False) -> None:
             resolved = path.resolve()
-            allowed_roots = [WEB_ROOT.resolve(), state.output_dir.resolve()]
+            allowed_roots = [WEB_ROOT.resolve(), state.output_dir.resolve(), ASSETS_ROOT.resolve()]
             if not any(resolved == root or root in resolved.parents for root in allowed_roots):
                 self.send_error(HTTPStatus.FORBIDDEN)
                 return
