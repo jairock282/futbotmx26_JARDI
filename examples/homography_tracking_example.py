@@ -23,9 +23,9 @@ from futbot_homography.tracking import (
 
 
 def main() -> None:
-    frames_dir = Path("data/frames")
-    points_path = Path("homography_points.json")
-    field_image_path = Path("cancha.png")
+    frames_dir = Path("data/frames/IMG_9933")
+    points_path = Path("configs/calibrations/homography_points_9933.json")
+    field_image_path = Path("data/field/cancha_1_10.png")
     reference_frame_path = frames_dir / "frame_0001.jpg"
 
     reference = compute_reference_homography(points_path)
@@ -45,8 +45,10 @@ def main() -> None:
 
     field_image = read_image(field_image_path)
     field_h, field_w = field_image.shape[:2]
-    output_dir = Path("example_homography_tracking_output")
+    output_dir = Path("/mnt/HDD/model_outputs/futbot/example_homography_tracking_output")
     output_dir.mkdir(exist_ok=True)
+    draw_output_dir = Path("/mnt/HDD/model_outputs/futbot/draw_homography_output")
+    draw_output_dir.mkdir(exist_ok=True)
 
     for frame_path in sorted_frame_paths(frames_dir):
         frame = read_image(frame_path)
@@ -77,8 +79,11 @@ def main() -> None:
 
         for x, y in robot_centers_field:
             cv2.circle(top_view, (int(round(x)), int(round(y))), 8, (0, 0, 255), 2)
+            cv2.circle(field_image, (int(round(x)), int(round(y))), 8,
+                       (0, 0, 255), 2)
 
         cv2.imwrite(str(output_dir / frame_path.name), top_view)
+        cv2.imwrite(str(draw_output_dir / frame_path.name), field_image)
         print(
             frame_path.name,
             result.status,
