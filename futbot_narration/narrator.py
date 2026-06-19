@@ -279,6 +279,8 @@ class MockCommentaryGenerator:
             return f"{maybe}Se levanta el fuera de lugar{team}, la jugada queda invalidada."
         if kind in {"tiro", "shot"}:
             return f"{maybe}Disparo{team}{robot}, buscando sorprender desde esa zona."
+        if kind in {"controla", "control"}:
+            return f"{maybe}La controla{team}{robot}, es suya la pelota."
         return f"{maybe}Accion detectada{team}{robot}, el partido sigue tomando ritmo."
 
 

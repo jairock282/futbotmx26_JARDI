@@ -9,6 +9,7 @@
   --accent: #d71920;
   --gold: #f3b61f;
   --blue: #1557d2;
+  --yellow: #ffcc00;
   --shadow: 0 18px 60px rgba(23, 33, 27, 0.12);
 }
 
@@ -175,6 +176,138 @@ h2 {
 .meter strong {
   color: var(--ink);
   font-size: 18px;
+}
+
+.scoreboard {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+  margin: 0 0 16px;
+  padding: 20px 24px;
+  border: 1px solid var(--line);
+  background: var(--panel);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(23, 33, 27, 0.06);
+}
+
+.scoreboard-team {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex: 1;
+}
+
+.scoreboard-team.team-a {
+  justify-content: flex-end;
+}
+
+.scoreboard-team.team-b {
+  justify-content: flex-start;
+}
+
+.scoreboard-label {
+  font-size: 16px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--ink);
+}
+
+.scoreboard-goals {
+  font-size: 48px;
+  font-weight: 900;
+  line-height: 1;
+  color: var(--ink);
+  min-width: 56px;
+  text-align: center;
+}
+
+.team-a .scoreboard-goals {
+  color: var(--yellow);
+}
+
+.team-b .scoreboard-goals {
+  color: var(--blue);
+}
+
+.scoreboard-separator {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 24px;
+}
+
+.scoreboard-vs {
+  font-size: 14px;
+  font-weight: 800;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.video-feed {
+  margin: 0 0 16px;
+  border: 1px solid var(--line);
+  background: var(--panel);
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 8px 24px rgba(23, 33, 27, 0.06);
+}
+
+.video-header {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--line);
+}
+
+.video-header h2 {
+  font-size: 16px;
+  margin: 0;
+}
+
+.pipeline-status {
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: #eef3ef;
+  color: var(--muted);
+}
+
+.pipeline-status.running {
+  background: #fff3cd;
+  color: #856404;
+}
+
+.pipeline-status.finished {
+  background: #e5f7ed;
+  color: #137a43;
+}
+
+.video-container {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 200px;
+  background: #111;
+}
+
+.video-container img {
+  display: none;
+  width: 100%;
+  height: auto;
+}
+
+.video-placeholder {
+  color: #888;
+  font-size: 14px;
+  text-align: center;
+  padding: 40px;
 }
 
 .field-view {

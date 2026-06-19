@@ -10,7 +10,7 @@
     <main class="shell">
       <section class="score-band">
         <div>
-          <p class="eyebrow">FutBotMX</p>
+          <p class="eyebrow">FutBotMX - JARDI</p>
           <h1>Narracion en vivo</h1>
         </div>
         <div class="status-panel">
@@ -20,8 +20,12 @@
       </section>
 
       <section class="control-strip" aria-label="Controles">
-        <button class="primary" id="audioButton" type="button">
+        <button class="primary" id="pipelineButton" type="button">
           <span class="icon">▶</span>
+          <span>Iniciar Pipeline</span>
+        </button>
+        <button id="audioButton" type="button">
+          <span class="icon">♪</span>
           <span>Audio</span>
         </button>
         <button id="demoButton" type="button">
@@ -35,6 +39,31 @@
         <div class="meter" aria-label="Cola de audio">
           <span>Cola</span>
           <strong id="queueCount">0</strong>
+        </div>
+      </section>
+
+      <section class="scoreboard" aria-label="Marcador">
+        <div class="scoreboard-team team-a">
+          <span class="scoreboard-label">Robot A</span>
+          <span class="scoreboard-goals" id="scoreA">0</span>
+        </div>
+        <div class="scoreboard-separator">
+          <span class="scoreboard-vs">VS</span>
+        </div>
+        <div class="scoreboard-team team-b">
+          <span class="scoreboard-goals" id="scoreB">0</span>
+          <span class="scoreboard-label">Robot B</span>
+        </div>
+      </section>
+
+      <section class="video-feed" aria-label="Video pipeline" id="videoSection">
+        <div class="video-header">
+          <h2>Vision Pipeline</h2>
+          <span class="pipeline-status" id="pipelineStatus">Detenido</span>
+        </div>
+        <div class="video-container">
+          <img id="videoFeed" src="" alt="Pipeline video feed">
+          <p class="video-placeholder" id="videoPlaceholder">Presiona "Iniciar Pipeline" para comenzar</p>
         </div>
       </section>
 

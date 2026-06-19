@@ -1,5 +1,6 @@
 const connectionDot = document.getElementById("connectionDot");
 const connectionText = document.getElementById("connectionText");
+const pipelineButton = document.getElementById("pipelineButton");
 const audioButton = document.getElementById("audioButton");
 const demoButton = document.getElementById("demoButton");
 const resetButton = document.getElementById("resetButton");
@@ -11,6 +12,11 @@ const liveType = document.getElementById("liveType");
 const liveText = document.getElementById("liveText");
 const actionCount = document.getElementById("actionCount");
 const eventList = document.getElementById("eventList");
+const videoFeed = document.getElementById("videoFeed");
+const videoPlaceholder = document.getElementById("videoPlaceholder");
+const pipelineStatus = document.getElementById("pipelineStatus");
+const scoreA = document.getElementById("scoreA");
+const scoreB = document.getElementById("scoreB");
 
 const audioQueue = [];
 const rows = new Map();
@@ -20,6 +26,7 @@ let isPlaying = false;
 let lastAudioUrl = null;
 let lastSpokenText = null;
 let totalActions = 0;
+let pipelineRunning = false;
 
 const source = new EventSource("/events");
 
@@ -66,11 +73,50 @@ source.addEventListener("reset", () => {
   liveText.textContent = "Sin acciones";
 });
 
+source.addEventListener("pipeline_status", (event) => {
+  const payload = JSON.parse(event.data);
+  if (payload.status === "running") {
+    pipelineRunning = true;
+    pipelineButton.disabled = true;
+    pipelineStatus.textContent = payload.step || "Procesando";
+    pipelineStatus.className = "pipeline-status running";
+    videoFeed.src = "/video-feed";
+    videoFeed.style.display = "block";
+    videoPlaceholder.style.display = "none";
+  } else if (payload.status === "finished") {
+    pipelineRunning = false;
+    pipelineButton.disabled = false;
+    pipelineStatus.textContent = "Terminado";
+    pipelineStatus.className = "pipeline-status finished";
+    if (payload.score) {
+      scoreA.textContent = payload.score.robot_a || 0;
+      scoreB.textContent = payload.score.robot_b || 0;
+    }
+  }
+});
+
+source.addEventListener("pipeline_progress", (event) => {
+  const payload = JSON.parse(event.data);
+  const pct = Math.round((payload.frame / payload.total) * 100);
+  pipelineStatus.textContent = `Frame ${payload.frame}/${payload.total} (${pct}%)`;
+  if (payload.score) {
+    scoreA.textContent = payload.score.robot_a || 0;
+    scoreB.textContent = payload.score.robot_b || 0;
+  }
+});
+
 source.onerror = () => {
   setConnection("Reconectando", "error");
 };
 
 setInterval(syncHistory, 1500);
+
+pipelineButton.addEventListener("click", async () => {
+  pipelineButton.disabled = true;
+  pipelineStatus.textContent = "Iniciando...";
+  pipelineStatus.className = "pipeline-status running";
+  await fetch("/api/pipeline", { method: "POST" });
+});
 
 audioButton.addEventListener("click", async () => {
   audioEnabled = true;

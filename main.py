@@ -1,11 +1,23 @@
-"""Main pipeline: SAM tracking + homography → field positions + 3-panel video."""
+"""Main pipeline: SAM tracking + homography + narration web app."""
 from __future__ import annotations
 
+import json
+import mimetypes
+import queue
+import threading
+import time
+from http import HTTPStatus
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
+from typing import Any
+from urllib.parse import unquote, urlparse
+import concurrent.futures
+import sys
 
 import cv2
 import numpy as np
 
+from futbot_activity_recognition import ControlDetector, GoalDetector, PassingDetector, load_goal_zones
 from futbot_homography import (
     ConsecutiveHomographyEstimator,
     HomographyTrackingConfig,
@@ -14,7 +26,12 @@ from futbot_homography import (
     sorted_frame_paths,
     transform_points_to_field,
 )
-from futbot_activity_recognition import GoalDetector, load_goal_zones
+from futbot_narration.narrator import (
+    FutbotNarrationPipeline,
+    MatchAction,
+    MockCommentaryGenerator,
+    iter_jsonl_actions,
+)
 from futbot_sam import (
     SAMTracker,
     TrackingConfig,
@@ -24,6 +41,8 @@ from futbot_sam import (
 # ── Configuration ──────────────────────────────────────────────────────────────
 SAMPLE_ID = "IMG_9913"
 OUTPUT_FPS = 20
+SERVER_HOST = "127.0.0.1"
+SERVER_PORT = 8060
 
 COLORS = {
     "ball": (255, 0, 0),
@@ -51,6 +70,10 @@ field_image_path = Path("assets/cancha_1_10.png")
 output_dir = Path(f"/mnt/HDD/model_outputs/futbot/pipeline_output/{SAMPLE_ID}")
 output_dir.mkdir(parents=True, exist_ok=True)
 
+WEB_ROOT = Path("web/narration_live")
+
+
+# ── Visualization helpers ─────────────────────────────────────────────────────
 
 def extract_mask_centroids(
     frame_result,
@@ -170,7 +193,247 @@ def draw_field_positions(
     return field
 
 
-def main() -> None:
+# ── App State ─────────────────────────────────────────────────────────────────
+class AppState:
+    def __init__(
+        self,
+        pipeline: FutbotNarrationPipeline,
+        output_dir: Path,
+        manifest_path: Path,
+        demo_actions_path: Path,
+        stream_audio: bool,
+        action_timeout_seconds: float,
+    ) -> None:
+        self.pipeline = pipeline
+        self.output_dir = output_dir
+        self.manifest_path = manifest_path
+        self.demo_actions_path = demo_actions_path
+        self.stream_audio = stream_audio
+        self.action_timeout_seconds = action_timeout_seconds
+        self.executor = concurrent.futures.ThreadPoolExecutor(max_workers=8)
+        self.actions: queue.Queue[dict[str, Any]] = queue.Queue()
+        self.records: dict[int, dict[str, Any]] = {}
+        self.records_lock = threading.Lock()
+        self.stream_texts: dict[int, str] = {}
+        self.stream_texts_lock = threading.Lock()
+        self.clients: list[queue.Queue[dict[str, Any]]] = []
+        self.clients_lock = threading.Lock()
+        self.counter = 0
+        self.counter_lock = threading.Lock()
+        self.generation = 0
+        self.generation_lock = threading.Lock()
+        self.demo_lock = threading.Lock()
+        self.demo_running = False
+        # Pipeline (vision)
+        self.pipeline_running = False
+        self.pipeline_lock = threading.Lock()
+        self.match_score: dict[str, int] = {"robot_a": 0, "robot_b": 0}
+        # MJPEG frame
+        self._current_frame: bytes | None = None
+        self._frame_lock = threading.Lock()
+
+    def next_id(self) -> int:
+        with self.counter_lock:
+            self.counter += 1
+            return self.counter
+
+    def set_frame(self, jpeg_bytes: bytes) -> None:
+        with self._frame_lock:
+            self._current_frame = jpeg_bytes
+
+    def get_frame(self) -> bytes | None:
+        with self._frame_lock:
+            return self._current_frame
+
+    def current_generation(self) -> int:
+        with self.generation_lock:
+            return self.generation
+
+    def is_current_generation(self, generation: int) -> bool:
+        return generation == self.current_generation()
+
+    def add_client(self) -> queue.Queue[dict[str, Any]]:
+        client: queue.Queue[dict[str, Any]] = queue.Queue()
+        with self.clients_lock:
+            self.clients.append(client)
+        return client
+
+    def remove_client(self, client: queue.Queue[dict[str, Any]]) -> None:
+        with self.clients_lock:
+            if client in self.clients:
+                self.clients.remove(client)
+
+    def broadcast(self, event: str, payload: dict[str, Any]) -> None:
+        message = {"event": event, "payload": payload}
+        with self.clients_lock:
+            clients = list(self.clients)
+        for client in clients:
+            client.put(message)
+
+    def enqueue_action(self, action: dict[str, Any]) -> dict[str, Any]:
+        action_id = self.next_id()
+        generation = self.current_generation()
+        queued = {
+            "id": action_id,
+            "generation": generation,
+            "received_at": time.time(),
+            "action": action,
+            "status": "queued",
+        }
+        self._save_record(queued)
+        self.actions.put(queued)
+        self.broadcast("action_received", queued)
+        return queued
+
+    def _save_record(self, record: dict[str, Any]) -> None:
+        with self.records_lock:
+            current = self.records.get(record["id"], {})
+            current.update(record)
+            self.records[record["id"]] = current
+
+    def history(self) -> list[dict[str, Any]]:
+        with self.records_lock:
+            return [self.records[key] for key in sorted(self.records)]
+
+    def reset(self) -> int:
+        with self.generation_lock:
+            self.generation += 1
+            generation = self.generation
+        with self.demo_lock:
+            self.demo_running = False
+        with self.records_lock:
+            self.records.clear()
+        with self.stream_texts_lock:
+            self.stream_texts.clear()
+        self.pipeline.reset_opening_phrase()
+        with self.counter_lock:
+            self.counter = 0
+        while True:
+            try:
+                self.actions.get_nowait()
+            except queue.Empty:
+                break
+            else:
+                self.actions.task_done()
+        self.broadcast("reset", {"generation": generation})
+        return generation
+
+    def run_worker(self) -> None:
+        self.output_dir.mkdir(parents=True, exist_ok=True)
+        self.manifest_path.parent.mkdir(parents=True, exist_ok=True)
+        while True:
+            queued = self.actions.get()
+            action_id = queued["id"]
+            generation = queued.get("generation", 0)
+            action = queued["action"]
+            try:
+                if not self.is_current_generation(generation):
+                    continue
+                self._save_record({"id": action_id, "generation": generation, "status": "narrating"})
+                self.broadcast("narration_started", {"id": action_id, "generation": generation})
+                future = self.executor.submit(
+                    self.pipeline.process_action,
+                    action,
+                    not self.stream_audio,
+                )
+                result = future.result(timeout=self.action_timeout_seconds)
+                if not self.is_current_generation(generation):
+                    continue
+                audio_path = result.audio_path
+                record = result.to_manifest_record()
+                record["id"] = action_id
+                record["generation"] = generation
+                record["status"] = "ready"
+                if self.stream_audio:
+                    with self.stream_texts_lock:
+                        self.stream_texts[action_id] = result.text
+                    record["audio_url"] = f"/audio-stream/{action_id}.mp3"
+                    record["audio_streaming"] = True
+                elif audio_path:
+                    record["audio_url"] = f"/audio/{audio_path.name}"
+                self._publish_record(record)
+            except concurrent.futures.TimeoutError:
+                record = self._fallback_record(
+                    action_id,
+                    action,
+                    f"timeout despues de {self.action_timeout_seconds:.0f}s",
+                    generation,
+                )
+                if self.is_current_generation(generation):
+                    self._publish_record(record)
+            except Exception as exc:
+                record = self._fallback_record(action_id, action, str(exc), generation)
+                if self.is_current_generation(generation):
+                    self._publish_record(record)
+            finally:
+                self.actions.task_done()
+
+    def _publish_record(self, record: dict[str, Any]) -> None:
+        if record.get("status") == "ready":
+            with self.manifest_path.open("a", encoding="utf-8") as manifest:
+                manifest.write(json.dumps(record, ensure_ascii=False) + "\n")
+        self._save_record(record)
+        event = "narration_ready" if record.get("status") == "ready" else "narration_error"
+        self.broadcast(event, record)
+
+    def _fallback_record(
+        self,
+        action_id: int,
+        action: dict[str, Any],
+        error: str,
+        generation: int,
+    ) -> dict[str, Any]:
+        text = MockCommentaryGenerator().generate(MatchAction.from_mapping(action), {})
+        text, _ = self.pipeline.prepend_opening_if_needed(text)
+        record: dict[str, Any] = {
+            "id": action_id,
+            "generation": generation,
+            "action": MatchAction.from_mapping(action).compact(),
+            "status": "ready",
+            "text": text,
+            "fallback": True,
+            "fallback_reason": error,
+            "audio_path": None,
+            "audio_url": None,
+            "browser_tts": True,
+        }
+        return record
+
+    def start_demo(self, delay_seconds: float) -> bool:
+        with self.demo_lock:
+            if self.demo_running:
+                return False
+            self.demo_running = True
+        thread = threading.Thread(
+            target=self._run_demo,
+            args=(delay_seconds,),
+            daemon=True,
+        )
+        thread.start()
+        return True
+
+    def _run_demo(self, delay_seconds: float) -> None:
+        generation = self.current_generation()
+        self.broadcast("demo_started", {"path": str(self.demo_actions_path), "generation": generation})
+        try:
+            for action in iter_jsonl_actions(self.demo_actions_path):
+                if not self.is_current_generation(generation):
+                    break
+                self.enqueue_action(action)
+                time.sleep(delay_seconds)
+        finally:
+            with self.demo_lock:
+                if self.is_current_generation(generation):
+                    self.demo_running = False
+            if self.is_current_generation(generation):
+                self.broadcast("demo_finished", {"generation": generation})
+
+
+# ── Pipeline runner ───────────────────────────────────────────────────────────
+def run_pipeline(state: AppState) -> None:
+    """Run the full SAM + homography + activity recognition pipeline."""
+    state.broadcast("pipeline_status", {"status": "running", "step": "sam_tracking"})
+
     # ── 1. SAM tracking ────────────────────────────────────────────────────────
     print("=== Step 1: SAM Tracking ===")
     tracking_classes = load_tracking_classes(tracking_config_path)
@@ -179,6 +442,8 @@ def main() -> None:
     sam_config = TrackingConfig(offload_video_to_cpu=True)
     tracker = SAMTracker(tracking_classes, sam_config)
     sam_result = tracker.track(str(frames_dir))
+
+    state.broadcast("pipeline_status", {"status": "running", "step": "homography_setup"})
 
     # ── 2. Homography setup ────────────────────────────────────────────────────
     print("=== Step 2: Homography ===")
@@ -205,16 +470,26 @@ def main() -> None:
     goal_detector = GoalDetector(
         goal_zones=goal_zones,
         proximity_threshold=200,
-        cooldown_frames=OUTPUT_FPS*2
+        cooldown_frames=OUTPUT_FPS * 2,
+    )
+    pass_detector = PassingDetector(
+        proximity_threshold=200,
+        cooldown_frames=OUTPUT_FPS * 2,
+    )
+    control_detector = ControlDetector(
+        proximity_threshold=800,
+        hold_frames=5,
+        cooldown_frames=OUTPUT_FPS * 3,
     )
 
-    # ── 3. Build 3-panel video ─────────────────────────────────────────────────
-    print("=== Step 3: Rendering 3-panel video ===")
+    state.broadcast("pipeline_status", {"status": "running", "step": "rendering"})
+
+    # ── 3. Frame-by-frame processing ──────────────────────────────────────────
+    print("=== Step 3: Rendering video + streaming ===")
     frame_paths = sorted_frame_paths(frames_dir)
     sample_frame = read_image(frame_paths[0])
     fh, fw = sample_frame.shape[:2]
 
-    # Scale frames to match field image height (field is the reference)
     frame_scale = field_h / fh
     fw_scaled = int(round(fw * frame_scale))
 
@@ -223,11 +498,11 @@ def main() -> None:
     fourcc = cv2.VideoWriter_fourcc(*"mp4v")
     writer = cv2.VideoWriter(video_path, fourcc, OUTPUT_FPS, (panel_w, field_h))
 
-    match_score = {
-        "robot_a": 0,
-        "robot_b": 0
-    }
+    state.match_score = {"robot_a": 0, "robot_b": 0}
+    frame_delay = 1.0 / OUTPUT_FPS
+
     for frame_idx, frame_path in enumerate(frame_paths):
+        t0 = time.time()
         frame_bgr = read_image(frame_path)
 
         # Homography for this frame
@@ -243,7 +518,6 @@ def main() -> None:
             panel_sam = draw_sam_overlay(frame_bgr, fr, labels, COLORS)
             panel_sam = cv2.resize(panel_sam, (fw_scaled, field_h))
 
-            # Extract centroids and transform to field
             centroids = extract_mask_centroids(fr, labels, fh, fw)
             if centroids:
                 pixel_pts = np.array(
@@ -256,31 +530,330 @@ def main() -> None:
                     (centroids[i][0], float(field_pts[i][0]), float(field_pts[i][1]))
                     for i in range(len(centroids))
                 ]
+                # Build indexed labels for PassingDetector (e.g. robot_a_0, robot_a_1)
+                label_counts: dict[str, int] = {}
+                field_positions_indexed = []
+                for label, fx, fy in field_positions:
+                    idx = label_counts.get(label, 0)
+                    label_counts[label] = idx + 1
+                    field_positions_indexed.append((f"{label}_{idx}", fx, fy))
             else:
                 field_positions = []
+                field_positions_indexed = []
         else:
             panel_sam = cv2.resize(frame_bgr, (fw_scaled, field_h))
             field_positions = []
+            field_positions_indexed = []
 
         # Activity recognition
         event = goal_detector.update(frame_idx, field_positions)
-        if event:
-            # print(f"  Frame {event.frame_idx}: {event.event_type} | {event.details}")
-            if event.event_type == "goal":
-                match_score[event.details["scoring_class"]] += 1
+        if event and event.event_type == "goal":
+            scoring_class = event.details["scoring_class"]
+            state.match_score[scoring_class] += 1
+            # Enqueue narration action
+            action_data = {
+                "type": "gol",
+                "team": scoring_class,
+                "timestamp": f"frame_{frame_idx}",
+                "score": dict(state.match_score),
+                "confidence": 0.9,
+            }
+            state.enqueue_action(action_data)
+            print(f"  GOAL! {scoring_class} scores | {state.match_score}")
 
+        pass_event = pass_detector.update(frame_idx, field_positions_indexed)
+        if pass_event:
+            action_data = {
+                "type": "pase",
+                "team": pass_event.details["team"],
+                "robot_id": pass_event.details["from_robot"],
+                "target_robot_id": pass_event.details["to_robot"],
+                "timestamp": f"frame_{frame_idx}",
+                "confidence": 0.7,
+            }
+            state.enqueue_action(action_data)
+            print(f"  PASS: {pass_event.details['from_robot']} -> {pass_event.details['to_robot']}")
 
-        # Panel 2: field map with positions (original scale)
+        control_event = control_detector.update(frame_idx, field_positions_indexed)
+        if control_event:
+            action_data = {
+                "type": "controla",
+                "team": control_event.details["team"],
+                "robot_id": control_event.details["robot"],
+                "timestamp": f"frame_{frame_idx}",
+                "confidence": 0.6,
+            }
+            state.enqueue_action(action_data)
+            print(f"  CONTROL: {control_event.details['robot']} holds ball ({control_event.details['hold_frames']} frames)")
+
+        # Panel 2: field map with positions
         panel_field = draw_field_positions(field_image, field_positions, icons)
 
         # Combine panels
         combined = np.hstack([panel_sam, panel_field])
         writer.write(combined)
 
-        print(f"match_score: {match_score}")
+        # Encode and publish frame for MJPEG stream
+        _, jpeg = cv2.imencode(".jpg", combined, [cv2.IMWRITE_JPEG_QUALITY, 70])
+        state.set_frame(jpeg.tobytes())
+
+        # Broadcast frame progress
+        if frame_idx % 10 == 0:
+            state.broadcast("pipeline_progress", {
+                "frame": frame_idx,
+                "total": len(frame_paths),
+                "score": state.match_score,
+            })
+
+        # Throttle to ~real-time playback
+        elapsed = time.time() - t0
+        sleep_time = frame_delay - elapsed
+        if sleep_time > 0:
+            time.sleep(sleep_time)
 
     writer.release()
     print(f"Pipeline video saved to {video_path}")
+    state.broadcast("pipeline_status", {"status": "finished", "score": state.match_score})
+    with state.pipeline_lock:
+        state.pipeline_running = False
+
+
+# ── HTTP Server ───────────────────────────────────────────────────────────────
+def _ensure_action_dict(value: Any) -> dict[str, Any]:
+    if not isinstance(value, dict):
+        raise ValueError("Cada accion debe ser un objeto JSON.")
+    return value
+
+def _parse_stream_id(path: str) -> int:
+    name = Path(unquote(path.removeprefix("/audio-stream/"))).stem
+    return int(name)
+
+def make_handler(state: AppState) -> type[BaseHTTPRequestHandler]:
+    class Handler(BaseHTTPRequestHandler):
+        server_version = "FutBot/1.0"
+
+        def handle(self) -> None:
+            try:
+                super().handle()
+            except (BrokenPipeError, ConnectionResetError):
+                pass
+
+        def do_GET(self) -> None:
+            parsed = urlparse(self.path)
+            if parsed.path == "/":
+                self._serve_file(WEB_ROOT / "index.html")
+            elif parsed.path == "/events":
+                self._serve_events()
+            elif parsed.path == "/video-feed":
+                self._serve_mjpeg()
+            elif parsed.path.startswith("/static/"):
+                relative = parsed.path.removeprefix("/static/")
+                self._serve_file(WEB_ROOT / relative)
+            elif parsed.path.startswith("/audio/"):
+                name = Path(unquote(parsed.path.removeprefix("/audio/"))).name
+                self._serve_file(state.output_dir / name)
+            elif parsed.path.startswith("/audio-stream/"):
+                try:
+                    stream_id = _parse_stream_id(parsed.path)
+                except ValueError:
+                    self.send_error(HTTPStatus.NOT_FOUND)
+                    return
+                self._serve_elevenlabs_stream(stream_id)
+            elif parsed.path == "/api/status":
+                self._send_json(
+                    {
+                        "queued": state.actions.qsize(),
+                        "demo_running": state.demo_running,
+                        "generation": state.current_generation(),
+                        "output_dir": str(state.output_dir),
+                        "stream_audio": state.stream_audio,
+                    }
+                )
+            elif parsed.path == "/api/history":
+                self._send_json({"records": state.history()})
+            else:
+                self.send_error(HTTPStatus.NOT_FOUND)
+
+        def do_HEAD(self) -> None:
+            parsed = urlparse(self.path)
+            if parsed.path.startswith("/audio/"):
+                name = Path(unquote(parsed.path.removeprefix("/audio/"))).name
+                self._serve_file(state.output_dir / name, head_only=True)
+            elif parsed.path.startswith("/audio-stream/"):
+                self.send_response(HTTPStatus.OK)
+                self.send_header("Content-Type", "audio/mpeg")
+                self.end_headers()
+            elif parsed.path.startswith("/static/"):
+                relative = parsed.path.removeprefix("/static/")
+                self._serve_file(WEB_ROOT / relative, head_only=True)
+            elif parsed.path == "/":
+                self._serve_file(WEB_ROOT / "index.html", head_only=True)
+            else:
+                self.send_error(HTTPStatus.NOT_FOUND)
+
+        def do_POST(self) -> None:
+            parsed = urlparse(self.path)
+            if parsed.path == "/api/actions":
+                payload = self._read_json()
+                if isinstance(payload, list):
+                    queued = [state.enqueue_action(_ensure_action_dict(item)) for item in payload]
+                else:
+                    queued = state.enqueue_action(_ensure_action_dict(payload))
+                self._send_json({"queued": queued}, status=HTTPStatus.ACCEPTED)
+            elif parsed.path == "/api/pipeline":
+                with state.pipeline_lock:
+                    if state.pipeline_running:
+                        self._send_json({"started": False, "reason": "already running"}, HTTPStatus.CONFLICT)
+                        return
+                    state.pipeline_running = True
+                thread = threading.Thread(target=run_pipeline, args=(state,), daemon=True)
+                thread.start()
+                self._send_json({"started": True}, status=HTTPStatus.ACCEPTED)
+            elif parsed.path == "/api/demo":
+                started = state.start_demo(delay_seconds=2.5)
+                status = HTTPStatus.ACCEPTED if started else HTTPStatus.CONFLICT
+                self._send_json({"started": started}, status=status)
+            elif parsed.path == "/api/reset":
+                generation = state.reset()
+                self._send_json({"ok": True, "generation": generation})
+            else:
+                self.send_error(HTTPStatus.NOT_FOUND)
+
+        def log_message(self, format: str, *args: Any) -> None:
+            sys.stderr.write("%s - %s\n" % (self.log_date_time_string(), format % args))
+
+        def _serve_events(self) -> None:
+            client = state.add_client()
+            self.send_response(HTTPStatus.OK)
+            self.send_header("Content-Type", "text/event-stream")
+            self.send_header("Cache-Control", "no-cache")
+            self.send_header("Connection", "keep-alive")
+            self.end_headers()
+            self.wfile.flush()
+            try:
+                self._write_sse("connected", {"ok": True})
+                while True:
+                    try:
+                        message = client.get(timeout=15)
+                    except queue.Empty:
+                        self.wfile.write(b": ping\n\n")
+                        self.wfile.flush()
+                        continue
+                    self._write_sse(message["event"], message["payload"])
+            except (BrokenPipeError, ConnectionResetError):
+                pass
+            finally:
+                state.remove_client(client)
+
+        def _write_sse(self, event: str, payload: dict[str, Any]) -> None:
+            body = f"event: {event}\ndata: {json.dumps(payload, ensure_ascii=False)}\n\n"
+            self.wfile.write(body.encode("utf-8"))
+            self.wfile.flush()
+
+        def _serve_mjpeg(self) -> None:
+            self.send_response(HTTPStatus.OK)
+            self.send_header("Content-Type", "multipart/x-mixed-replace; boundary=frame")
+            self.send_header("Cache-Control", "no-cache")
+            self.end_headers()
+            try:
+                while True:
+                    frame = state.get_frame()
+                    if frame is not None:
+                        self.wfile.write(b"--frame\r\n")
+                        self.wfile.write(b"Content-Type: image/jpeg\r\n")
+                        self.wfile.write(f"Content-Length: {len(frame)}\r\n\r\n".encode())
+                        self.wfile.write(frame)
+                        self.wfile.write(b"\r\n")
+                        self.wfile.flush()
+                    time.sleep(1.0 / OUTPUT_FPS)
+            except (BrokenPipeError, ConnectionResetError):
+                pass
+
+        def _serve_file(self, path: Path, head_only: bool = False) -> None:
+            resolved = path.resolve()
+            allowed_roots = [WEB_ROOT.resolve(), state.output_dir.resolve()]
+            if not any(resolved == root or root in resolved.parents for root in allowed_roots):
+                self.send_error(HTTPStatus.FORBIDDEN)
+                return
+            if not resolved.exists() or not resolved.is_file():
+                self.send_error(HTTPStatus.NOT_FOUND)
+                return
+            content_type = mimetypes.guess_type(resolved.name)[0] or "application/octet-stream"
+            data = resolved.read_bytes()
+            self.send_response(HTTPStatus.OK)
+            self.send_header("Content-Type", content_type)
+            self.send_header("Content-Length", str(len(data)))
+            self.send_header("Cache-Control", "no-store")
+            self.end_headers()
+            if not head_only:
+                self.wfile.write(data)
+
+        def _serve_elevenlabs_stream(self, stream_id: int) -> None:
+            with state.stream_texts_lock:
+                text = state.stream_texts.get(stream_id)
+            if text is None:
+                self.send_error(HTTPStatus.NOT_FOUND)
+                return
+            self.send_response(HTTPStatus.OK)
+            self.send_header("Content-Type", "audio/mpeg")
+            self.send_header("Cache-Control", "no-store")
+            self.end_headers()
+            try:
+                for chunk in state.pipeline.speech_generator.synthesize_stream(text):
+                    self.wfile.write(chunk)
+                    self.wfile.flush()
+            except (BrokenPipeError, ConnectionResetError):
+                pass
+
+        def _read_json(self) -> Any:
+            length = int(self.headers.get("Content-Length", "0"))
+            body = self.rfile.read(length)
+            try:
+                return json.loads(body.decode("utf-8"))
+            except json.JSONDecodeError as exc:
+                raise ValueError(f"JSON invalido: {exc}") from exc
+
+        def _send_json(self, payload: dict[str, Any], status: HTTPStatus = HTTPStatus.OK) -> None:
+            data = json.dumps(payload, ensure_ascii=False).encode("utf-8")
+            self.send_response(status)
+            self.send_header("Content-Type", "application/json; charset=utf-8")
+            self.send_header("Content-Length", str(len(data)))
+            self.end_headers()
+            self.wfile.write(data)
+
+    return Handler
+
+# ── Entry point ───────────────────────────────────────────────────────────────
+
+def main() -> None:
+    pipeline = FutbotNarrationPipeline.from_env(".env", mock=False)
+    pipeline.config.output_dir = output_dir
+
+    manifest_path = output_dir / "narration_manifest.jsonl"
+    demo_actions_path = Path("examples/actions_stream.jsonl")
+
+    state = AppState(
+        pipeline=pipeline,
+        output_dir=output_dir,
+        manifest_path=manifest_path,
+        demo_actions_path=demo_actions_path,
+        stream_audio=False,
+        action_timeout_seconds=60.0,
+    )
+
+    # Start narration worker
+    worker = threading.Thread(target=state.run_worker, daemon=True)
+    worker.start()
+
+    # Start HTTP server
+    server = ThreadingHTTPServer((SERVER_HOST, SERVER_PORT), make_handler(state))
+    print(f"FutBotMX app: http://{SERVER_HOST}:{SERVER_PORT}")
+    try:
+        server.serve_forever()
+    except KeyboardInterrupt:
+        print("\nShutting down.")
+    finally:
+        server.server_close()
 
 
 if __name__ == "__main__":

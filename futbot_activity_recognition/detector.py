@@ -158,3 +158,221 @@ class GoalDetector:
         self._prev_ball_pos = ball_pos
 
         return event
+
+
+class PassingDetector:
+    """Detect pass events between robots of the same class.
+
+    A pass is detected when:
+        1. At frame t, the ball is closest to robot X of class C.
+        2. At frame t+1, the ball is closest to robot Y of class C (different robot, same class).
+    """
+
+    def __init__(
+        self,
+        proximity_threshold: float = 100.0,
+        cooldown_frames: int = 30,
+    ) -> None:
+        """
+        Args:
+            proximity_threshold: Max distance (field px) to consider ball "with" a robot.
+            cooldown_frames: Frames to ignore after a pass is detected.
+        """
+        self.proximity_threshold = proximity_threshold
+        self.cooldown_frames = cooldown_frames
+        self._prev_nearest_label: str | None = None
+        self._prev_nearest_class: str | None = None
+        self._cooldown_remaining: int = 0
+
+    def reset(self) -> None:
+        """Reset internal state."""
+        self._prev_nearest_label = None
+        self._prev_nearest_class = None
+        self._cooldown_remaining = 0
+
+    def update(
+        self,
+        frame_idx: int,
+        field_positions: list[tuple[str, float, float]],
+    ) -> ActivityEvent | None:
+        """Process one frame and return a pass event if detected.
+
+        Args:
+            frame_idx: Current frame index.
+            field_positions: List of (label, field_x, field_y) for all objects.
+
+        Returns:
+            ActivityEvent if a pass is detected, None otherwise.
+        """
+        if self._cooldown_remaining > 0:
+            self._cooldown_remaining -= 1
+            return None
+
+        # Find ball position
+        ball_pos = None
+        for label, fx, fy in field_positions:
+            if label.startswith("ball"):
+                ball_pos = (fx, fy)
+                break
+
+        if ball_pos is None:
+            self._prev_nearest_label = None
+            self._prev_nearest_class = None
+            return None
+
+        # Find nearest robot to the ball (using full label for identity)
+        nearest_label = None
+        nearest_class = None
+        nearest_dist = float("inf")
+        for label, fx, fy in field_positions:
+            if label.startswith("ball"):
+                continue
+            dist = ((ball_pos[0] - fx) ** 2 + (ball_pos[1] - fy) ** 2) ** 0.5
+            if dist < nearest_dist:
+                nearest_dist = dist
+                nearest_label = label
+                nearest_class = label.split("_")[0] + "_" + label.split("_")[1] if "_" in label else label
+
+        # Check pass condition: ball moves between two different robots of the same class
+        event = None
+        if (
+            nearest_label is not None
+            and nearest_dist <= self.proximity_threshold
+            and self._prev_nearest_label is not None
+            and self._prev_nearest_class is not None
+            and nearest_class == self._prev_nearest_class
+            and nearest_label != self._prev_nearest_label
+        ):
+            event = ActivityEvent(
+                event_type="pass",
+                frame_idx=frame_idx,
+                details={
+                    "team": nearest_class,
+                    "from_robot": self._prev_nearest_label,
+                    "to_robot": nearest_label,
+                    "ball_position": ball_pos,
+                },
+            )
+            self._cooldown_remaining = self.cooldown_frames
+
+        # Update state for next frame
+        if nearest_label is not None and nearest_dist <= self.proximity_threshold:
+            self._prev_nearest_label = nearest_label
+            self._prev_nearest_class = nearest_class
+        else:
+            self._prev_nearest_label = None
+            self._prev_nearest_class = None
+
+        return event
+
+
+class ControlDetector:
+    """Detect ball control events.
+
+    A control event is detected when the ball stays within proximity of the
+    same robot for ``hold_frames`` consecutive frames.
+    """
+
+    def __init__(
+        self,
+        proximity_threshold: float = 100.0,
+        hold_frames: int = 20,
+        cooldown_frames: int = 60,
+    ) -> None:
+        """
+        Args:
+            proximity_threshold: Max distance (field px) to consider ball "with" a robot.
+            hold_frames: Consecutive frames the ball must stay with a robot to trigger.
+            cooldown_frames: Frames to ignore after a control event is detected.
+        """
+        self.proximity_threshold = proximity_threshold
+        self.hold_frames = hold_frames
+        self.cooldown_frames = cooldown_frames
+        self._current_label: str | None = None
+        self._current_class: str | None = None
+        self._hold_count: int = 0
+        self._cooldown_remaining: int = 0
+
+    def reset(self) -> None:
+        """Reset internal state."""
+        self._current_label = None
+        self._current_class = None
+        self._hold_count = 0
+        self._cooldown_remaining = 0
+
+    def update(
+        self,
+        frame_idx: int,
+        field_positions: list[tuple[str, float, float]],
+    ) -> ActivityEvent | None:
+        """Process one frame and return a control event if detected.
+
+        Args:
+            frame_idx: Current frame index.
+            field_positions: List of (label, field_x, field_y) for all objects.
+
+        Returns:
+            ActivityEvent if ball control is detected, None otherwise.
+        """
+        if self._cooldown_remaining > 0:
+            self._cooldown_remaining -= 1
+            return None
+
+        # Find ball position
+        ball_pos = None
+        for label, fx, fy in field_positions:
+            if label.startswith("ball"):
+                ball_pos = (fx, fy)
+                break
+
+        if ball_pos is None:
+            self._current_label = None
+            self._current_class = None
+            self._hold_count = 0
+            return None
+
+        # Find nearest robot
+        nearest_label = None
+        nearest_class = None
+        nearest_dist = float("inf")
+        for label, fx, fy in field_positions:
+            if label.startswith("ball"):
+                continue
+            dist = ((ball_pos[0] - fx) ** 2 + (ball_pos[1] - fy) ** 2) ** 0.5
+            if dist < nearest_dist:
+                nearest_dist = dist
+                nearest_label = label
+                nearest_class = label.split("_")[0] + "_" + label.split("_")[1] if "_" in label else label
+
+        # Track consecutive frames with the same robot
+        print(f"nearest_dist: {nearest_dist}, threshold: {self.proximity_threshold}")
+        if nearest_label is not None and nearest_dist <= self.proximity_threshold:
+            if nearest_label == self._current_label:
+                self._hold_count += 1
+            else:
+                self._current_label = nearest_label
+                self._current_class = nearest_class
+                self._hold_count = 1
+        else:
+            self._current_label = None
+            self._current_class = None
+            self._hold_count = 0
+            return None
+
+        # Check if hold threshold reached
+        if self._hold_count >= self.hold_frames:
+            event = ActivityEvent(
+                event_type="control",
+                frame_idx=frame_idx,
+                details={
+                    "team": self._current_class,
+                    "robot": self._current_label,
+                    "ball_position": ball_pos,
+                    "hold_frames": self._hold_count,
+                },
+            )
+            self._cooldown_remaining = self.cooldown_frames
+            self._hold_count = 0
+            return event
+
+        return None
