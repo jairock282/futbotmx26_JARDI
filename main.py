@@ -16,7 +16,6 @@ import sys
 
 import cv2
 import numpy as np
-
 from futbot_activity_recognition import ControlDetector, GoalDetector, PassingDetector, load_goal_zones
 from futbot_homography import (
     ConsecutiveHomographyEstimator,
@@ -177,6 +176,41 @@ def _overlay_icon(canvas: np.ndarray, icon_bgra: np.ndarray, cx: int, cy: int) -
     bgr = patch[:, :, :3].astype(np.float32)
     roi = canvas[dy1:dy2, dx1:dx2].astype(np.float32)
     canvas[dy1:dy2, dx1:dx2] = (bgr * alpha + roi * (1.0 - alpha)).astype(np.uint8)
+
+
+class HeatmapTracker:
+    """Accumulates robot positions and renders a heatmap overlay on the field."""
+
+    def __init__(self, field_h: int, field_w: int, sigma: float = 30.0) -> None:
+        self.field_h = field_h
+        self.field_w = field_w
+        self.sigma = sigma
+        self._counts = np.zeros((field_h, field_w), dtype=np.float32)
+
+    def reset(self) -> None:
+        self._counts[:] = 0
+
+    def update(self, field_positions: list[tuple[str, float, float]]) -> None:
+        """Accumulate one frame of robot positions (skip the ball)."""
+        for label, fx, fy in field_positions:
+            if label == "ball":
+                continue
+            ix, iy = int(round(fx)), int(round(fy))
+            if 0 <= ix < self.field_w and 0 <= iy < self.field_h:
+                self._counts[iy, ix] += 1
+
+    def get_normalized(self) -> np.ndarray:
+        """Return smoothed and normalized heatmap (0-255 uint8)."""
+        blurred = cv2.GaussianBlur(self._counts, (0, 0), sigmaX=self.sigma, sigmaY=self.sigma)
+        scaled = np.sqrt(blurred)
+        norm = cv2.normalize(scaled, None, 0, 255, cv2.NORM_MINMAX)
+        return norm.astype(np.uint8)
+
+    def render(self, field_base: np.ndarray, alpha: float = 0.5) -> np.ndarray:
+        """Render the heatmap blended on top of the field image."""
+        heatmap_gray = self.get_normalized()
+        heatmap_bgr = cv2.applyColorMap(heatmap_gray, cv2.COLORMAP_JET)
+        return cv2.addWeighted(field_base, 1.0 - alpha, heatmap_bgr, alpha, 0)
 
 
 def draw_field_positions(
@@ -465,6 +499,7 @@ def run_pipeline(state: AppState) -> None:
     field_image = read_image(field_image_path)
     field_h, field_w = field_image.shape[:2]
     icons = load_icons(icon_paths=ICON_PATHS, scale_map=ICON_SCALE_MAP)
+    heatmap_tracker = HeatmapTracker(field_h, field_w, sigma=8.0)
 
     goal_zones = load_goal_zones(goal_zones_path)
     goal_detector = GoalDetector(
@@ -586,10 +621,12 @@ def run_pipeline(state: AppState) -> None:
             state.enqueue_action(action_data)
             print(f"  CONTROL: {control_event.details['robot']} holds ball ({control_event.details['hold_frames']} frames)")
 
-        # Panel 2: field map with positions
-        panel_field = draw_field_positions(field_image, field_positions, icons)
+        # Panel 2: field map with heatmap overlay
+        heatmap_tracker.update(field_positions)
+        panel_field = heatmap_tracker.render(field_image, alpha=0.35)
+        panel_field = draw_field_positions(panel_field, field_positions, icons)
 
-        # Combine panels
+        # Combine panels: sam | field
         combined = np.hstack([panel_sam, panel_field])
         writer.write(combined)
 
