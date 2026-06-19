@@ -223,3 +223,6 @@ __marimo__/
 
 # Pycharm
 .idea
+
+# Keys
+.env
