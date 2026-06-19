@@ -124,7 +124,7 @@ from futbot_homography import (
     transform_points_to_field,
 )
 
-frames = sorted_frame_paths("data/frames")
+frames = sorted_frame_paths("../data/frames")
 reference = compute_reference_homography("homography_points.json")
 
 results = estimate_homographies_for_frame_paths(
