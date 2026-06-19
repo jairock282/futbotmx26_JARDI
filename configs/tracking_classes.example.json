@@ -1,0 +1,16 @@
+{
+  "image_width": 10,
+  "image_height": 10,
+  "tracking_classes": [
+    {
+      "prompt": "test prompt A",
+      "label": "test class A",
+      "bbox": null
+    },
+    {
+      "prompt": "test prompt B",
+      "label": "test class B",
+      "bbox": null
+    }
+  ]
+}

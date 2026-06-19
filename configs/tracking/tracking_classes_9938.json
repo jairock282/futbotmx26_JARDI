@@ -1,0 +1,26 @@
+{
+  "image_width": 1080,
+  "image_height": 1920,
+  "tracking_classes": [
+    {
+      "prompt": "robot",
+      "label": "robot_a",
+      "bbox": [288, 431, 141, 153]
+    },
+    {
+      "prompt": "robot",
+      "label": "robot_a",
+      "bbox": [305, 655, 134, 134]
+    },
+    {
+      "prompt": "orange ball",
+      "label": "ball",
+      "bbox": [400, 970, 37, 37]
+    },
+    {
+      "prompt": "robot",
+      "label": "robot_b",
+      "bbox": [371, 1044, 129, 120]
+    }
+  ]
+}
