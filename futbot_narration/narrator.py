@@ -14,6 +14,7 @@ from typing import Any, Iterable, Mapping
 
 
 ELEVENLABS_DEFAULT_VOICE_ID = "QpDQJR3frbDwOhTIo8nW"
+DEFAULT_OPENING_PHRASE = "Amigos aficionados que viven la intensidad del futbol"
 OPENAI_RESPONSES_URL = "https://api.openai.com/v1/responses"
 ELEVENLABS_TTS_URL = "https://api.elevenlabs.io/v1/text-to-speech/{voice_id}"
 ELEVENLABS_TTS_STREAM_URL = "https://api.elevenlabs.io/v1/text-to-speech/{voice_id}/stream"
@@ -105,6 +106,7 @@ class NarrationConfig:
     output_dir: Path = Path("outputs/narration_audio")
     history_size: int = 6
     request_timeout_seconds: int = 12
+    opening_phrase: str = DEFAULT_OPENING_PHRASE
 
     @classmethod
     def from_env(
@@ -136,6 +138,7 @@ class NarrationConfig:
                 os.getenv("ELEVENLABS_STREAMING_LATENCY", "3")
             ),
             request_timeout_seconds=int(os.getenv("NARRATION_REQUEST_TIMEOUT_SECONDS", "12")),
+            opening_phrase=os.getenv("NARRATION_OPENING_PHRASE", DEFAULT_OPENING_PHRASE),
         )
 
 
@@ -297,6 +300,7 @@ class FutbotNarrationPipeline:
         self.config = config
         self.history: deque[dict[str, Any]] = deque(maxlen=config.history_size)
         self.scoreboard: dict[str, int] = {}
+        self._opening_spoken = False
         self.commentary_generator = commentary_generator or OpenAICommentaryGenerator(
             config.openai_api_key,
             config.openai_model,
@@ -337,6 +341,7 @@ class FutbotNarrationPipeline:
                     "ELEVENLABS_VOICE_ID",
                     ELEVENLABS_DEFAULT_VOICE_ID,
                 ),
+                opening_phrase=os.getenv("NARRATION_OPENING_PHRASE", DEFAULT_OPENING_PHRASE),
             )
             return cls(config, MockCommentaryGenerator(), MockSpeechGenerator())
         return cls(NarrationConfig.from_env(env_path, require_elevenlabs=require_elevenlabs))
@@ -349,12 +354,19 @@ class FutbotNarrationPipeline:
             "acciones_recientes": list(self.history),
         }
         text = self.commentary_generator.generate(action, context)
+        opening_applied = False
         audio_path: Path | None = None
-        if write_audio:
-            self.config.output_dir.mkdir(parents=True, exist_ok=True)
-            audio_bytes = self.speech_generator.synthesize(text)
-            audio_path = self._audio_path_for(action)
-            audio_path.write_bytes(audio_bytes)
+        try:
+            text, opening_applied = self.prepend_opening_if_needed(text)
+            if write_audio:
+                self.config.output_dir.mkdir(parents=True, exist_ok=True)
+                audio_bytes = self.speech_generator.synthesize(text)
+                audio_path = self._audio_path_for(action)
+                audio_path.write_bytes(audio_bytes)
+        except Exception:
+            if opening_applied:
+                self.restore_opening_phrase()
+            raise
 
         record = action.compact()
         record["narration"] = text
@@ -389,6 +401,19 @@ class FutbotNarrationPipeline:
             if value
         )
         return self.config.output_dir / f"{stem}.mp3"
+
+    def prepend_opening_if_needed(self, text: str) -> tuple[str, bool]:
+        phrase = self.config.opening_phrase.strip()
+        if not phrase or self._opening_spoken:
+            return text, False
+        self._opening_spoken = True
+        return f"{phrase}. {text}", True
+
+    def restore_opening_phrase(self) -> None:
+        self._opening_spoken = False
+
+    def reset_opening_phrase(self) -> None:
+        self._opening_spoken = False
 
 
 def load_env_file(env_path: str | Path = ".env") -> None:

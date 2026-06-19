@@ -173,9 +173,14 @@ OPENAI_API_KEY=
 ELEVENLABS_API_KEY=
 OPENAI_MODEL=gpt-5.5
 OPENAI_REASONING_EFFORT=low
+NARRATION_OPENING_PHRASE=Amigos aficionados que viven la intensidad del futbol
 ELEVENLABS_VOICE_ID=QpDQJR3frbDwOhTIo8nW
 ELEVENLABS_VOICE_SPEED=1.18
 ```
+
+La frase de `NARRATION_OPENING_PHRASE` se escucha antes de la primera accion de
+cada corrida. Si presionas `Limpiar`, se vuelve a activar para la siguiente
+accion.
 
 Prueba sin consumir APIs:
 

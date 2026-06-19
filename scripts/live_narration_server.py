@@ -126,6 +126,7 @@ class LiveNarrationState:
             self.records.clear()
         with self.stream_texts_lock:
             self.stream_texts.clear()
+        self.pipeline.reset_opening_phrase()
         with self.counter_lock:
             self.counter = 0
         while True:
@@ -204,6 +205,7 @@ class LiveNarrationState:
         generation: int,
     ) -> dict[str, Any]:
         text = MockCommentaryGenerator().generate(MatchAction.from_mapping(action), {})
+        text, _ = self.pipeline.prepend_opening_if_needed(text)
         record: dict[str, Any] = {
             "id": action_id,
             "generation": generation,

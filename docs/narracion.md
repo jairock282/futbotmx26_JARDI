@@ -49,6 +49,7 @@ ELEVENLABS_API_KEY=tu_api_key_de_elevenlabs
 OPENAI_MODEL=gpt-5.5
 OPENAI_REASONING_EFFORT=low
 NARRATION_REQUEST_TIMEOUT_SECONDS=12
+NARRATION_OPENING_PHRASE=Amigos aficionados que viven la intensidad del futbol
 ELEVENLABS_VOICE_ID=QpDQJR3frbDwOhTIo8nW
 ELEVENLABS_MODEL_ID=eleven_multilingual_v2
 ELEVENLABS_OUTPUT_FORMAT=mp3_44100_128
@@ -60,6 +61,7 @@ Notas:
 
 - `OPENAI_REASONING_EFFORT=low` prioriza baja latencia para narracion en vivo.
 - `NARRATION_REQUEST_TIMEOUT_SECONDS=12` evita que una llamada lenta deje la UI atorada en `NARRANDO`.
+- `NARRATION_OPENING_PHRASE` se agrega al audio de la primera accion de cada corrida/reset.
 - `ELEVENLABS_VOICE_ID` ya esta configurado con la voz solicitada.
 - `ELEVENLABS_VOICE_SPEED=1.18` acelera la voz sin sonar demasiado atropellada.
 - `ELEVENLABS_STREAMING_LATENCY=3` pide optimizacion de latencia al endpoint streaming.
@@ -320,6 +322,9 @@ Invalida la corrida actual, limpia historial, vacia la cola pendiente del
 servidor y hace que cualquier respuesta vieja de GPT/ElevenLabs que llegue tarde
 sea ignorada. En el navegador tambien detiene el audio actual, cancela la voz
 fallback local y vacia la cola de reproduccion.
+
+Despues de un reset, la siguiente accion vuelve a incluir la frase de apertura
+configurada en `NARRATION_OPENING_PHRASE`.
 
 Respuesta:
 
