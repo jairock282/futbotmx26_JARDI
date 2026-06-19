@@ -22,7 +22,7 @@ examples/
 ## Instalacion
 
 ```bash
-pip install -r requirements.txt
+conda env create -f futbotmx26.yml
 ```
 
 Requiere ademas el paquete `sam3` (SAM3 video predictor) instalado y accesible.
