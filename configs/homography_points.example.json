@@ -1,0 +1,26 @@
+{
+  "frame_image": "data/frame_0001.jpg",
+  "field_image": "data/cancha.png",
+  "points": [
+    {
+      "name": "esquina_1",
+      "frame": null,
+      "field": null
+    },
+    {
+      "name": "esquina_2",
+      "frame": null,
+      "field": null
+    },
+    {
+      "name": "esquina_3",
+      "frame": null,
+      "field": null
+    },
+    {
+      "name": "esquina_4",
+      "frame": null,
+      "field": null
+    }
+  ]
+}
