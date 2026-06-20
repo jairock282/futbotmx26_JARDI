@@ -1,12 +1,12 @@
 # futbot_activity_recognition
 
-Modulo de **reconocimiento de actividad basado en reglas** usando coordenadas de cancha por frame.
+Módulo de **reconocimiento de actividad basado en reglas** usando coordenadas de cancha por frame.
 
 ## Contenido
 
 ```text
 futbot_activity_recognition/
-  __init__.py     # API publica
+  __init__.py     # API pública
   detector.py     # GoalDetector, PassingDetector, ControlDetector, dataclasses y loader de zonas
 
 configs/roi/
@@ -19,16 +19,16 @@ configs/roi/
 
 Se detecta un gol cuando:
 
-1. En el frame `t`, la pelota esta cerca de un robot de clase X (dentro de `proximity_threshold`).
+1. En el frame `t`, la pelota está cerca de un robot de clase X (dentro de `proximity_threshold`).
 2. En el frame `t+1`, la pelota entra en la zona de gol de clase X.
 
-Esto significa que el equipo que tenia posesion recibio un gol (el equipo contrario anoto).
+Esto significa que el equipo que tenía posesión recibió un gol (el equipo contrario anotó).
 
 ### Pase (Pass)
 
 Se detecta un pase cuando:
 
-1. En el frame `t`, la pelota esta cerca de un robot `X` de clase `C` (dentro de `proximity_threshold`).
+1. En el frame `t`, la pelota está cerca de un robot `X` de clase `C` (dentro de `proximity_threshold`).
 2. En el frame `t+1`, la pelota pasa a estar cerca de otro robot `Y` de la misma clase `C`, pero de identidad diferente.
 
 Es decir, el balón se transfiere entre dos robots del mismo equipo. Los robots deben tener etiquetas distintas para distinguir identidades, por ejemplo `robot_a_0`, `robot_a_1`, `robot_b_0`, etc.
@@ -53,7 +53,7 @@ El evento incluye:
 - `ball_position`: posición de la pelota en coordenadas de cancha.
 - `hold_frames`: número de frames consecutivos que el robot mantuvo la pelota.
 
-## Configuracion
+## Configuración
 
 Archivo `configs/roi/goal_zones_{video_id}.json`:
 
@@ -68,10 +68,10 @@ Archivo `configs/roi/goal_zones_{video_id}.json`:
 }
 ```
 
-- **bbox**: `[x, y, w, h]` en pixeles de la imagen de cancha (homografia).
-- Las zonas se definen por clase de robot — la zona de `robot_a` es donde `robot_a` defiende.
+- **bbox**: `[x, y, w, h]` en píxeles de la imagen de cancha (homografía).
+- Las zonas se definen por clase de robot - la zona de `robot_a` es donde `robot_a` defiende.
 
-## Uso desde codigo
+## Uso desde código
 
 ```python
 from futbot_activity_recognition import (
@@ -115,7 +115,7 @@ for frame_idx, field_positions in frame_data:
         print(f"Frame {control_event.frame_idx}: {control_event.event_type} — {control_event.details}")
 ```
 
-## API publica
+## API pública
 
 ```python
 # Clases

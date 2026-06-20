@@ -1,6 +1,6 @@
 # futbot_sam
 
-Modulo de **tracking multi-objeto** basado en SAM3 (Segment Anything Model 3) para videos de futbol de robots.
+Módulo de **tracking multi-objeto** basado en SAM3 (Segment Anything Model 3) para videos de fútbol de robots.
 
 ## Contenido
 
@@ -19,43 +19,43 @@ examples/
   sam_tracking_example.py      # ejemplo de uso independiente
 ```
 
-## Instalacion
+## Instalación
 
 ```bash
 conda env create -f futbotmx26.yml
 ```
 
-Requiere ademas el paquete `sam3` (SAM3 video predictor) instalado y accesible.
+Requiere además el paquete `sam3` (SAM3 video predictor) instalado y accesible.
 
-## Arquitectura del modulo
+## Arquitectura del módulo
 
 ### Clases principales
 
-- **`TrackingClass`** — define un objeto a rastrear: `prompt` (texto para SAM), `label` (etiqueta de clase) y `bbox` opcional (bounding box normalizado `[x, y, w, h]`).
-- **`TrackingConfig`** — parametros del tracker: `offload_video_to_cpu`, `mask_alpha`, `font_scale`, `font_thickness`.
-- **`SAMTracker`** — orquesta el tracking completo: agrupa clases por prompt, ejecuta sesiones SAM3 y asigna objetos detectados a sub-clases.
-- **`TrackingResult`** — contiene los resultados: diccionario de `frame_idx` -> `FrameResult`.
-- **`FrameResult`** — mascaras y sus indices de clase para un frame.
+- **`TrackingClass`** - define un objeto a rastrear: `prompt` (texto para SAM), `label` (etiqueta de clase) y `bbox` opcional (bounding box normalizado `[x, y, w, h]`).
+- **`TrackingConfig`** - parámetros del tracker: `offload_video_to_cpu`, `mask_alpha`, `font_scale`, `font_thickness`.
+- **`SAMTracker`** - orquesta el tracking completo: agrupa clases por prompt, ejecuta sesiones SAM3 y asigna objetos detectados a sub-clases.
+- **`TrackingResult`** - contiene los resultados: diccionario de `frame_idx` -> `FrameResult`.
+- **`FrameResult`** - máscaras y sus índices de clase para un frame.
 
 ### Flujo interno del tracker
 
-1. Las clases se agrupan por `prompt` (ej: todas las entradas con prompt `"robot"` se ejecutan en una sola sesion SAM).
-2. Para cada grupo se inicia una sesion SAM3 con `start_session`, se agrega el prompt con `add_prompt` (texto + bbox opcional) y se propaga con `propagate_in_video`.
-3. Si un grupo tiene multiples sub-clases con bbox (ej: `robot_a` y `robot_b`), los objetos detectados se asignan a la sub-clase mas cercana comparando el centroide de la mascara en el frame 0 con el centro del bbox de referencia.
-4. Las sesiones se cierran despues de cada grupo para liberar memoria GPU.
+1. Las clases se agrupan por `prompt` (ej: todas las entradas con prompt `"robot"` se ejecutan en una sola sesión SAM).
+2. Para cada grupo se inicia una sesión SAM3 con `start_session`, se agrega el prompt con `add_prompt` (texto + bbox opcional) y se propaga con `propagate_in_video`.
+3. Si un grupo tiene múltiples sub-clases con bbox (ej: `robot_a` y `robot_b`), los objetos detectados se asignan a la sub-clase más cercana comparando el centroide de la máscara en el frame 0 con el centro del bbox de referencia.
+4. Las sesiones se cierran después de cada grupo para liberar memoria GPU.
 
 ### Helpers
 
-- **`load_tracking_classes(config_path)`** — carga clases desde un JSON de configuracion, normalizando bboxes de pixeles a `[0, 1]`.
-- **`bbox_center(bbox_norm, h, w)`** — centro en pixeles de un bbox normalizado.
-- **`mask_centroid(mask)`** — centroide `(cy, cx)` de una mascara binaria.
+- **`load_tracking_classes(config_path)`** - carga clases desde un JSON de configuración, normalizando bboxes de píxeles a `[0, 1]`.
+- **`bbox_center(bbox_norm, h, w)`** - centro en píxeles de un bbox normalizado.
+- **`mask_centroid(mask)`** - centroide `(cy, cx)` de una máscara binaria.
 
-### Visualizacion
+### Visualización
 
-- **`save_mask_frames(result, output_dir, labels, colors)`** — guarda PNGs con mascaras coloreadas por clase.
-- **`render_overlay_video(result, frames_dir, output_path, labels, fps, colors)`** — genera un video MP4 con mascaras y etiquetas superpuestas sobre los frames originales.
+- **`save_mask_frames(result, output_dir, labels, colors)`** - guarda PNGs con máscaras coloreadas por clase.
+- **`render_overlay_video(result, frames_dir, output_path, labels, fps, colors)`** - genera un video MP4 con máscaras y etiquetas superpuestas sobre los frames originales.
 
-## Configuracion por muestra
+## Configuración por muestra
 
 Cada video tiene su archivo JSON en `configs/tracking/`:
 
@@ -84,9 +84,9 @@ Cada video tiene su archivo JSON en `configs/tracking/`:
 ```
 
 - **`image_width`, `image_height`**: dimensiones del frame original (para normalizar bboxes).
-- **`bbox`**: `[x, y, w, h]` en pixeles del frame 0. Se normaliza automaticamente al cargar.
-- **`prompt`**: texto enviado a SAM3. Clases con el mismo prompt comparten sesion.
-- **`label`**: etiqueta de la clase. Multiples entradas pueden tener el mismo label (ej: dos robots del mismo equipo).
+- **`bbox`**: `[x, y, w, h]` en píxeles del frame 0. Se normaliza automáticamente al cargar.
+- **`prompt`**: texto enviado a SAM3. Clases con el mismo prompt comparten sesión.
+- **`label`**: etiqueta de la clase. Múltiples entradas pueden tener el mismo label (ej: dos robots del mismo equipo).
 
 ### Colores
 
@@ -100,13 +100,13 @@ COLORS = {
 }
 ```
 
-## Uso desde codigo
+## Uso desde código
 
 ```python
 from futbot_sam import SAMTracker, TrackingConfig, load_tracking_classes
 from futbot_sam import save_mask_frames, render_overlay_video
 
-# 1. Cargar configuracion
+# 1. Cargar configuración
 tracking_classes = load_tracking_classes("configs/tracking/tracking_classes_9913.json")
 labels = [c.label for c in tracking_classes]
 
@@ -130,16 +130,16 @@ render_overlay_video(
 )
 ```
 
-## Integracion con el pipeline principal
+## Integración con el pipeline principal
 
-El modulo se integra con `futbot_homography` en `main.py`:
+El módulo se integra con `futbot_homography` en `main.py`:
 
-1. **SAM tracking** produce mascaras por frame con etiquetas de clase.
-2. Se extraen centroides de las mascaras (base del robot).
-3. **Homografia** transforma los centroides de pixeles a coordenadas de cancha.
-4. Se genera un video de 3 paneles: frame original | overlay SAM | mapa de cancha.
+1. **SAM tracking** produce máscaras por frame con etiquetas de clase.
+2. Se extraen centroides de las máscaras (base del robot).
+3. **Homografía** transforma los centroides de píxeles a coordenadas de cancha.
+4. Se genera un video de 2 paneles: overlay SAM | mapa de cancha.
 
-## API publica
+## API pública
 
 ```python
 # Clases

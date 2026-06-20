@@ -1,6 +1,6 @@
-# Narracion automatica en vivo
+# Narración automática en vivo
 
-Este modulo convierte acciones detectadas durante el partido en narracion de
+Este módulo convierte acciones detectadas durante el partido en narración de
 comentarista y audio reproducible en una web app local.
 
 La cadena completa es:
@@ -25,14 +25,14 @@ futbot_narration/
 scripts/
   run_narration_stream.py          # procesa un JSONL por terminal
   live_narration_server.py         # servidor web local en vivo
-  stop_live_narration_server.py    # detiene servidores locales de narracion
+  stop_live_narration_server.py    # detiene servidores locales de narración
   test_elevenlabs_stream.py        # prueba directa de TTS streaming
   benchmark_elevenlabs_latency.py  # compara TTS normal vs streaming
 
 web/narration_live/
   index.html                       # UI
   app.css                          # estilos
-  app.js                           # SSE, cola de audio, actualizacion de acciones
+  app.js                           # SSE, cola de audio, actualización de acciones
 
 examples/
   actions_stream.jsonl             # acciones de ejemplo blanco/negro
@@ -40,7 +40,7 @@ examples/
 
 ## Variables de entorno
 
-Crea `.env` en la raiz de `futbotmx26_JARDI`. El archivo esta ignorado por git.
+Crea `.env` en la raíz de `futbotmx26_JARDI`. El archivo está ignorado por git.
 Nunca subas llaves reales al repositorio.
 
 ```bash
@@ -59,17 +59,17 @@ ELEVENLABS_STREAMING_LATENCY=3
 
 Notas:
 
-- `OPENAI_REASONING_EFFORT=low` prioriza baja latencia para narracion en vivo.
+- `OPENAI_REASONING_EFFORT=low` prioriza baja latencia para narración en vivo.
 - `NARRATION_REQUEST_TIMEOUT_SECONDS=12` evita que una llamada lenta deje la UI atorada en `NARRANDO`.
-- `NARRATION_OPENING_PHRASE` se agrega al audio de la primera accion de cada corrida/reset.
-- `ELEVENLABS_VOICE_ID` ya esta configurado con la voz solicitada.
+- `NARRATION_OPENING_PHRASE` se agrega al audio de la primera acción de cada corrida/reset.
+- `ELEVENLABS_VOICE_ID` ya está configurado con la voz solicitada.
 - `ELEVENLABS_VOICE_SPEED=1.18` acelera la voz sin sonar demasiado atropellada.
-- `ELEVENLABS_STREAMING_LATENCY=3` pide optimizacion de latencia al endpoint streaming.
+- `ELEVENLABS_STREAMING_LATENCY=3` pide optimización de latencia al endpoint streaming.
 - Puedes copiar `.env.example` como punto de partida.
 
 ## Levantar el servidor en vivo
 
-Desde la raiz del repo:
+Desde la raíz del repo:
 
 ```bash
 cd /Users/juanterven/dev/Copa_FutBolMX/futbotmx26_JARDI
@@ -97,27 +97,27 @@ En la web app:
 
 1. Presiona `Audio`.
 2. Manda acciones al endpoint `POST /api/actions`.
-3. La accion aparece inmediatamente.
+3. La acción aparece inmediatamente.
 4. Cuando terminan GPT y ElevenLabs, se muestra el texto narrado y se reproduce el MP3.
 
-Si el navegador bloquea autoplay, el boton cambia a `Reintentar audio`. Da click
+Si el navegador bloquea autoplay, el botón cambia a `Reintentar audio`. Da click
 otra vez y se reproduce lo que haya quedado en cola.
 
 ## Cerrar el servidor
 
-Si el servidor esta corriendo en la terminal actual:
+Si el servidor está corriendo en la terminal actual:
 
 ```text
 Ctrl+C
 ```
 
-Si se quedo corriendo en otra terminal y ocupa el puerto `8060`:
+Si se quedó corriendo en otra terminal y ocupa el puerto `8060`:
 
 ```bash
 python scripts/stop_live_narration_server.py
 ```
 
-Para ver que mataria sin detener nada:
+Para ver qué mataría sin detener nada:
 
 ```bash
 python scripts/stop_live_narration_server.py --dry-run
@@ -129,13 +129,13 @@ Si no se detiene con `SIGTERM`:
 python scripts/stop_live_narration_server.py --force
 ```
 
-Tambien puedes cambiar el puerto:
+También puedes cambiar el puerto:
 
 ```bash
 python scripts/live_narration_server.py --port 8061
 ```
 
-## Prueba rapida sin gastar APIs
+## Prueba rápida sin gastar APIs
 
 Modo mock:
 
@@ -182,7 +182,7 @@ El manifiesto de acciones/narraciones queda en:
 outputs/live_narration_manifest.jsonl
 ```
 
-`outputs/` esta ignorado por git.
+`outputs/` está ignorado por git.
 
 ## Probar solo la voz en streaming
 
@@ -201,13 +201,13 @@ El script imprime:
 - `total_ms`: tiempo total hasta guardar el MP3 completo.
 - `chunks` y `bytes`: datos recibidos del stream.
 
-La documentacion de ElevenLabs indica que el endpoint streaming de TTS es:
+La documentación de ElevenLabs indica que el endpoint streaming de TTS es:
 
 ```text
 POST /v1/text-to-speech/:voice_id/stream
 ```
 
-Tambien documenta `voice_settings.speed`: `1.0` es la velocidad normal, valores
+También documenta `voice_settings.speed`: `1.0` es la velocidad normal, valores
 mayores que `1.0` aceleran la voz.
 
 ## Comparar tiempos con y sin streaming
@@ -222,7 +222,7 @@ Genera audios y un reporte JSON en:
 outputs/latency_benchmark/
 ```
 
-Metricas:
+Métricas:
 
 - `normal.summary.mean_ms`: tiempo promedio esperando el MP3 completo.
 - `stream.time_to_first_chunk_summary.mean_ms`: tiempo promedio hasta el primer chunk.
@@ -251,13 +251,13 @@ Cada evento es un objeto JSON. Campos recomendados:
 Campos:
 
 - `timestamp`: tiempo de partido, frame o reloj del sistema.
-- `type`: accion detectada, por ejemplo `pase`, `gol`, `tiro`, `fuera_de_lugar`.
+- `type`: acción detectada, por ejemplo `pase`, `gol`, `tiro`, `fuera_de_lugar`.
 - `team`: `blanco` o `negro`.
-- `robot_id`: robot principal de la accion.
+- `robot_id`: robot principal de la acción.
 - `target_robot_id`: robot destino en pases.
 - `outcome`: resultado detectado, por ejemplo `completo`, `a_porteria`, `fallado`.
 - `confidence`: confianza del detector entre `0` y `1`.
-- `score`: marcador actual cuando este disponible.
+- `score`: marcador actual cuando esté disponible.
 
 El narrador conserva un contexto corto de acciones recientes y marcador para que
 GPT no narre cada evento como si estuviera aislado.
@@ -274,7 +274,7 @@ Canal SSE usado por la web app. No lo tienen que llamar los detectores.
 
 ### `POST /api/actions`
 
-Recibe una accion:
+Recibe una acción:
 
 ```bash
 curl -X POST http://127.0.0.1:8060/api/actions \
@@ -282,7 +282,7 @@ curl -X POST http://127.0.0.1:8060/api/actions \
   -d '{"timestamp":"00:10","type":"tiro","team":"negro","robot_id":"N7","confidence":0.88}'
 ```
 
-Tambien recibe una lista de acciones:
+También recibe una lista de acciones:
 
 ```bash
 curl -X POST http://127.0.0.1:8060/api/actions \
@@ -314,16 +314,16 @@ Respuesta:
 ### `POST /api/demo`
 
 Manda las acciones de `examples/actions_stream.jsonl` con pausa entre eventos.
-Sirve para demostracion desde la UI.
+Sirve para demostración desde la UI.
 
 ### `POST /api/reset`
 
-Invalida la corrida actual, limpia historial, vacia la cola pendiente del
+Invalida la corrida actual, limpia historial, vacía la cola pendiente del
 servidor y hace que cualquier respuesta vieja de GPT/ElevenLabs que llegue tarde
-sea ignorada. En el navegador tambien detiene el audio actual, cancela la voz
-fallback local y vacia la cola de reproduccion.
+sea ignorada. En el navegador también detiene el audio actual, cancela la voz
+fallback local y vacía la cola de reproducción.
 
-Despues de un reset, la siguiente accion vuelve a incluir la frase de apertura
+Después de un reset, la siguiente acción vuelve a incluir la frase de apertura
 configurada en `NARRATION_OPENING_PHRASE`.
 
 Respuesta:
@@ -337,7 +337,7 @@ Respuesta:
 
 ### `GET /api/status`
 
-Devuelve estado basico:
+Devuelve estado básico:
 
 ```json
 {
@@ -353,9 +353,9 @@ Devuelve estado basico:
 
 Sirve los MP3 generados para que el navegador los reproduzca.
 
-## Integracion desde el detector de acciones
+## Integración desde el detector de acciones
 
-Ejemplo minimo desde Python:
+Ejemplo mínimo desde Python:
 
 ```python
 import json
@@ -426,7 +426,7 @@ tail -f acciones.jsonl | python scripts/run_narration_stream.py
 
 ## Troubleshooting
 
-### El puerto ya esta ocupado
+### El puerto ya está ocupado
 
 ```bash
 python scripts/stop_live_narration_server.py --dry-run
@@ -442,7 +442,7 @@ python scripts/live_narration_server.py --port 8061
 ### No suena el audio
 
 - Presiona `Audio` antes de mandar acciones.
-- Si aparece `Reintentar audio`, vuelve a presionar el boton.
+- Si aparece `Reintentar audio`, vuelve a presionar el botón.
 - Verifica que existan MP3 en `outputs/live_narration_audio/`.
 - Si ElevenLabs se tarda o falla, el servidor publica texto narrado con
   `browser_tts: true`; la web app lo reproduce con la voz local del navegador.
@@ -450,10 +450,10 @@ python scripts/live_narration_server.py --port 8061
 ### Se queda en `NARRANDO`
 
 - El servidor tiene `NARRATION_REQUEST_TIMEOUT_SECONDS=12`; si GPT o ElevenLabs
-  exceden ese tiempo, publica una narracion fallback en lugar de dejar la fila
+  exceden ese tiempo, publica una narración fallback en lugar de dejar la fila
   atorada.
-- Si presionaste `Limpiar`, el servidor invalida la generacion anterior. Las
-  respuestas viejas que lleguen despues del reset no deben reaparecer en la UI.
+- Si presionaste `Limpiar`, el servidor invalida la generación anterior. Las
+  respuestas viejas que lleguen después del reset no deben reaparecer en la UI.
 - Revisa estado con:
 
 ```bash
@@ -470,10 +470,10 @@ OPENAI_API_KEY=...
 ELEVENLABS_API_KEY=...
 ```
 
-### La narracion tarda mucho
+### La narración tarda mucho
 
-- `OPENAI_REASONING_EFFORT=low` ya esta configurado para bajar latencia.
+- `OPENAI_REASONING_EFFORT=low` ya está configurado para bajar latencia.
 - Usa `python scripts/live_narration_server.py --stream-audio` para empezar a
   reproducir conforme ElevenLabs devuelve chunks.
-- ElevenLabs puede dominar la latencia total; para demos rapidas usa `--mock`.
+- ElevenLabs puede dominar la latencia total; para demos rápidas usa `--mock`.
 - Evita mandar demasiadas acciones redundantes; el servidor procesa en cola.

@@ -1,6 +1,6 @@
-# Homografia movil para vista cenital
+# Homografía móvil para vista cenital
 
-Este documento explica el metodo usado para convertir frames de un video de futbol de robots a una vista cenital de la cancha, incluso cuando la camara tiene movimientos suaves.
+Este documento explica el método usado para convertir frames de un video de fútbol de robots a una vista cenital de la cancha, incluso cuando la cámara tiene movimientos suaves.
 
 El objetivo es obtener, para cada frame del video, una matriz:
 
@@ -8,7 +8,7 @@ El objetivo es obtener, para cada frame del video, una matriz:
 H_t: frame_t -> cancha.png
 ```
 
-Con esa homografia se pueden proyectar puntos detectados en el frame original, por ejemplo centros de robots o de la pelota, hacia coordenadas de la imagen cenital `cancha.png`.
+Con esa homografía se pueden proyectar puntos detectados en el frame original, por ejemplo centros de robots o de la pelota, hacia coordenadas de la imagen cenital `cancha.png`.
 
 ## Idea general
 
@@ -18,15 +18,15 @@ Primero se calibra manualmente un frame de referencia, normalmente el primer fra
 H_ref: frame_0001 -> cancha.png
 ```
 
-Esa homografia se obtiene con puntos correspondientes entre `frame_0001.jpg` y `cancha.png`. En este proyecto esos puntos viven en:
+Esa homografía se obtiene con puntos correspondientes entre `frame_0001.jpg` y `cancha.png`. En este proyecto esos puntos viven en:
 
 ```text
 homography_points.json
 ```
 
-El problema es que la camara no esta completamente fija. Si la camara se mueve, aunque sea poco, `H_ref` ya no sirve perfectamente para todos los frames.
+El problema es que la cámara no está completamente fija. Si la cámara se mueve, aunque sea poco, `H_ref` ya no sirve perfectamente para todos los frames.
 
-Para corregirlo, estimamos el movimiento de camara entre frames consecutivos:
+Para corregirlo, estimamos el movimiento de cámara entre frames consecutivos:
 
 ```text
 A_2: frame_0002 -> frame_0001
@@ -47,21 +47,21 @@ Y componemos:
 H_t = H_ref @ T_t
 ```
 
-Asi obtenemos una homografia distinta para cada frame:
+Así obtenemos una homografía distinta para cada frame:
 
 ```text
 frame_t -> frame_0001 -> cancha.png
 ```
 
-## Por que usar tracking secuencial
+## Por qué usar tracking secuencial
 
-Una opcion seria alinear cada frame directamente contra `frame_0001`:
+Una opción sería alinear cada frame directamente contra `frame_0001`:
 
 ```text
 frame_t -> frame_0001
 ```
 
-Pero esto falla mas facilmente cuando la camara se mueve y partes de la cancha salen de la imagen. Por ejemplo, si una esquina visible en el frame de referencia ya no aparece en un frame posterior, el algoritmo intentaria alinear informacion que ya no existe.
+Pero esto falla más fácilmente cuando la cámara se mueve y partes de la cancha salen de la imagen. Por ejemplo, si una esquina visible en el frame de referencia ya no aparece en un frame posterior, el algoritmo intentaría alinear información que ya no existe.
 
 Por eso se usa modo secuencial:
 
@@ -69,11 +69,11 @@ Por eso se usa modo secuencial:
 frame_0005 -> frame_0004 -> frame_0003 -> frame_0002 -> frame_0001
 ```
 
-Entre frames consecutivos el movimiento suele ser pequeno y hay mucho mas traslape visual, asi que la alineacion es mas estable.
+Entre frames consecutivos el movimiento suele ser pequeño y hay mucho más traslape visual, así que la alineación es más estable.
 
-## Que transformacion se estima entre frames
+## Qué transformación se estima entre frames
 
-Para el movimiento entre frames se usa normalmente un modelo afin:
+Para el movimiento entre frames se usa normalmente un modelo afín:
 
 ```text
 A_t =
@@ -84,30 +84,30 @@ A_t =
 
 Este modelo permite:
 
-- traslacion,
-- rotacion,
+- traslación,
+- rotación,
 - escala leve,
 - shear leve.
 
-Aunque el movimiento entre frames se estime con una transformacion afin, el resultado final sigue siendo una homografia porque se compone con `H_ref`:
+Aunque el movimiento entre frames se estime con una transformación afín, el resultado final sigue siendo una homografía porque se compone con `H_ref`:
 
 ```text
 H_t = H_ref @ T_t
 ```
 
-Tambien se puede usar una homografia completa entre frames, pero para movimientos suaves de camara el modelo afin suele ser mas estable.
+También se puede usar una homografía completa entre frames, pero para movimientos suaves de cámara el modelo afín suele ser más estable.
 
-## Como se alinean los frames
+## Cómo se alinean los frames
 
-La alineacion se hace con ECC, disponible en OpenCV como:
+La alineación se hace con ECC, disponible en OpenCV como:
 
 ```python
 cv2.findTransformECC(...)
 ```
 
-ECC busca la transformacion geometrica que maximiza la similitud entre dos imagenes.
+ECC busca la transformación geométrica que maximiza la similitud entre dos imágenes.
 
-No se usa el frame RGB completo, porque hay objetos que se mueven independientemente de la camara:
+No se usa el frame RGB completo, porque hay objetos que se mueven independientemente de la cámara:
 
 - robots,
 - manos,
@@ -116,21 +116,21 @@ No se usa el frame RGB completo, porque hay objetos que se mueven independientem
 - celulares,
 - pelota.
 
-En vez de eso se construye una imagen de alineacion donde se intenta conservar principalmente la estructura fija de la cancha:
+En vez de eso se construye una imagen de alineación donde se intenta conservar principalmente la estructura fija de la cancha:
 
-- lineas blancas,
+- líneas blancas,
 - bordes del campo,
 - marcas estables sobre el piso.
 
-## Procesamiento para extraer lineas de cancha
+## Procesamiento para extraer líneas de cancha
 
-La funcion principal esta en:
+La función principal está en:
 
 ```text
 homography_tracking.py
 ```
 
-Funcion:
+Función:
 
 ```python
 make_line_alignment(frame_bgr)
@@ -141,16 +141,16 @@ El flujo es:
 ```text
 frame BGR
  -> HSV
- -> mascara de blanco
- -> mascara de verde/cancha
+ -> máscara de blanco
+ -> máscara de verde/cancha
  -> blanco AND zona de cancha
- -> limpieza morfologica
- -> engrosar lineas
+ -> limpieza morfológica
+ -> engrosar líneas
  -> blur suave
  -> imagen float para ECC
 ```
 
-Codigo base:
+Código base:
 
 ```python
 def make_line_alignment(frame_bgr):
@@ -180,7 +180,7 @@ def make_line_alignment(frame_bgr):
     return lines.astype(np.float32) / 255.0, lines
 ```
 
-### Mascara de blanco
+### Máscara de blanco
 
 ```python
 white = cv2.inRange(
@@ -190,11 +190,11 @@ white = cv2.inRange(
 )
 ```
 
-Busca pixeles claros y con poca saturacion.
+Busca píxeles claros y con poca saturación.
 
-Esto captura lineas blancas, aunque tambien puede capturar partes blancas de robots, ropa u otros objetos.
+Esto captura líneas blancas, aunque también puede capturar partes blancas de robots, ropa u otros objetos.
 
-### Mascara de cancha
+### Máscara de cancha
 
 ```python
 green = cv2.inRange(
@@ -206,62 +206,62 @@ green = cv2.inRange(
 
 Busca la zona verde/turquesa de la cancha.
 
-Esta mascara sirve para saber que regiones pertenecen al campo.
+Esta máscara sirve para saber qué regiones pertenecen al campo.
 
-### Expansion de la cancha
+### Expansión de la cancha
 
 ```python
 green = cv2.morphologyEx(green, cv2.MORPH_CLOSE, odd_kernel(17))
 green = cv2.dilate(green, odd_kernel(23))
 ```
 
-Se limpia y expande la zona de cancha para incluir lineas blancas que estan encima o justo junto al campo verde.
+Se limpia y expande la zona de cancha para incluir líneas blancas que están encima o justo junto al campo verde.
 
-### Interseccion blanco-cancha
+### Intersección blanco-cancha
 
 ```python
 lines = cv2.bitwise_and(white, green)
 ```
 
-Esto conserva pixeles blancos que estan dentro o cerca de la cancha.
+Esto conserva píxeles blancos que están dentro o cerca de la cancha.
 
 Ayuda a descartar blancos externos, como paredes, playeras, celulares o reflejos fuera del campo.
 
-### Limpieza morfologica
+### Limpieza morfológica
 
 ```python
 white = cv2.morphologyEx(white, cv2.MORPH_OPEN, odd_kernel(3))
 lines = cv2.morphologyEx(lines, cv2.MORPH_CLOSE, odd_kernel(5))
 ```
 
-`MORPH_OPEN` elimina ruido pequeno.
+`MORPH_OPEN` elimina ruido pequeño.
 
-`MORPH_CLOSE` conecta segmentos de lineas que quedaron cortados.
+`MORPH_CLOSE` conecta segmentos de líneas que quedaron cortados.
 
-### Engrosar y suavizar lineas
+### Engrosar y suavizar líneas
 
 ```python
 lines = cv2.dilate(lines, odd_kernel(3))
 lines = cv2.GaussianBlur(lines, (5, 5), 0)
 ```
 
-Se engrosan las lineas para darle mas senal a ECC.
+Se engrosan las líneas para darle más señal a ECC.
 
-Luego se suaviza la imagen para que la optimizacion sea menos fragil.
+Luego se suaviza la imagen para que la optimización sea menos frágil.
 
-## Mascara valida para ECC
+## Máscara válida para ECC
 
-Ademas de la imagen de alineacion, se construye una mascara valida:
+Además de la imagen de alineación, se construye una máscara válida:
 
 ```python
 valid_mask = cv2.dilate(line_mask, odd_kernel(120))
 ```
 
-Esto le dice a ECC que se concentre alrededor de las zonas donde hay lineas de cancha.
+Esto le dice a ECC que se concentre alrededor de las zonas donde hay líneas de cancha.
 
-La mascara no tiene que ser perfecta. Solo necesita contener suficiente estructura fija para que ECC pueda estimar el movimiento de camara.
+La máscara no tiene que ser perfecta. Solo necesita contener suficiente estructura fija para que ECC pueda estimar el movimiento de cámara.
 
-## Composicion de homografias
+## Composición de homografías
 
 Si:
 
@@ -278,7 +278,7 @@ T_t = T_{t-1} @ A_t
 H_t = H_ref @ T_t
 ```
 
-En codigo, el estimador mantiene el estado acumulado:
+En código, el estimador mantiene el estado acumulado:
 
 ```python
 result = estimator.process(frame, frame_name="frame_0005.jpg")
@@ -302,11 +302,11 @@ robot_centers_field = transform_points_to_field(
 )
 ```
 
-Si el tracking de robots devuelve el centro de la base del robot en pixeles del frame, esta funcion devuelve su posicion en pixeles de `cancha.png`.
+Si el tracking de robots devuelve el centro de la base del robot en píxeles del frame, esta función devuelve su posición en píxeles de `cancha.png`.
 
 ## Archivos principales
 
-### Calibracion manual
+### Calibración manual
 
 ```text
 homography_viewer.py
@@ -320,28 +320,28 @@ Genera/lee:
 homography_points.json
 ```
 
-### Libreria reusable
+### Librería reusable
 
 ```text
 homography_tracking.py
 ```
 
-Contiene la logica reusable:
+Contiene la lógica reusable:
 
 - cargar puntos,
 - calcular `H_ref`,
-- procesar lineas,
+- procesar líneas,
 - estimar movimiento frame a frame,
-- componer homografias,
+- componer homografías,
 - proyectar puntos.
 
-### Script de estimacion por carpeta
+### Script de estimación por carpeta
 
 ```text
 estimate_video_homographies.py
 ```
 
-Procesa todos los frames de una carpeta y guarda una homografia por frame.
+Procesa todos los frames de una carpeta y guarda una homografía por frame.
 
 Ejemplo:
 
@@ -360,7 +360,7 @@ python scripts/estimate_video_homographies.py \
 example_homography_tracking.py
 ```
 
-Muestra como usar la libreria para:
+Muestra cómo usar la librería para:
 
 - estimar `H_t`,
 - proyectar puntos,
@@ -387,7 +387,7 @@ current_to_ref
 H_frame_to_field
 ```
 
-El campo mas importante para el gemelo digital es:
+El campo más importante para el gemelo digital es:
 
 ```text
 H_frame_to_field
@@ -395,31 +395,31 @@ H_frame_to_field
 
 Esa matriz convierte puntos del frame original hacia la vista cenital.
 
-## Consideraciones practicas
+## Consideraciones prácticas
 
-- La calidad de `H_ref` es critica. Si los puntos manuales iniciales estan mal, todas las homografias posteriores heredan ese error.
-- Conviene usar mas de 4 puntos para la calibracion inicial. Idealmente 6-12 puntos distribuidos por la cancha.
+- La calidad de `H_ref` es crítica. Si los puntos manuales iniciales están mal, todas las homografías posteriores heredan ese error.
+- Conviene usar más de 4 puntos para la calibración inicial. Idealmente 6-12 puntos distribuidos por la cancha.
 - Los puntos deben estar sobre el plano del piso, no sobre robots, postes altos o paredes.
-- ECC puede fallar si hay oclusiones fuertes, blur, cambios grandes de camara o pocas lineas visibles.
+- ECC puede fallar si hay oclusiones fuertes, blur, cambios grandes de cámara o pocas líneas visibles.
 - El modo secuencial reduce fallos por partes de cancha que salen de la imagen, pero puede acumular drift en videos largos.
 - Para videos largos puede convenir reenganchar contra un frame clave o recalibrar cada cierto tiempo.
 
 ## Resumen
 
-El metodo separa el problema en dos partes:
+El método separa el problema en dos partes:
 
 ```text
 1. Perspectiva de la cancha:
    H_ref = frame_0001 -> cancha.png
 
-2. Movimiento suave de camara:
+2. Movimiento suave de cámara:
    T_t = frame_t -> frame_0001
 ```
 
-La homografia final por frame es:
+La homografía final por frame es:
 
 ```text
 H_t = H_ref @ T_t
 ```
 
-Con esto se puede construir una visualizacion cenital dinamica del partido y proyectar detecciones de robots/pelota sobre `cancha.png`.
+Con esto se puede construir una visualización cenital dinámica del partido y proyectar detecciones de robots/pelota sobre `cancha.png`.

@@ -2,12 +2,11 @@
 
 [▶️ Ver demo en Youtube](https://www.youtube.com/watch?v=oMxEaP6SfW4)
 
-[📱 Ver reel en Instagram]()
+[📱 Ver reel en Instagram](https://www.instagram.com/reel/DZy-EQ2AKmV/?igsh=c29vdXN4OHJlOG9s)
 
 Sistema de visión por computadora para analizar, visualizar y narrar partidos de fútbol de robots. El pipeline detecta y rastrea robots y pelota en el video, proyecta sus posiciones a una vista cenital de la cancha, reconoce eventos de juego (gol, pase, posesión del balón) y genera narración automática con voz sintética.
 
 ![Demo](docs/imgs/test_jardi.gif)
-
 
 ## Descripción del enfoque y arquitectura
 
@@ -62,7 +61,7 @@ Salida: máscaras binarias por frame y por clase, con las que se extraen los cen
 
 ![Demo](docs/imgs/test_tracking.gif)
 
-### 2. Homografía móvil — `futbot_homography/`
+### 2. Homografía móvil - `futbot_homography/`
 
 Convierte los centroides detectados en el frame original a coordenadas de la cancha cenital.
 
